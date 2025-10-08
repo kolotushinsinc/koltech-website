@@ -16,17 +16,30 @@ const Home = () => {
         <link rel="canonical" href="https://koltech.dev" />
       </Helmet>
       {/* Hero Section */}
-      <section className="pt-20 sm:pt-24 pb-8 sm:pb-12 px-4 sm:px-6">
-        <div className="container mx-auto text-center">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-white mb-4 sm:mb-6 leading-tight">
+      <section className="hero-with-video">
+        <video
+          className="video-background"
+          autoPlay
+          loop
+          muted
+          playsInline
+        >
+          <source src="/video1.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <div className="video-overlay"></div>
+        <div className="container mx-auto text-center pt-20 sm:pt-24 px-4 sm:px-6 z-10 h-full flex flex-col">
+          <div className="max-w-4xl mx-auto flex-grow flex flex-col justify-center">
+            {/* <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-white mb-4 sm:mb-6 leading-tight">
               Создаем
               <span className="gradient-text block mt-1 sm:mt-2">Будущее Технологий</span>
             </h1>
             <p className="text-base sm:text-xl text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed px-2">
               KolTech - инновационная платформа для разработки веб-сайтов, мобильных приложений
               и AI-решений. Мы превращаем ваши идеи в революционные цифровые продукты.
-            </p>
+            </p> */}
+          </div>
+          <div className="pb-24 sm:pb-28">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <Link
                 to="/contacts"

@@ -25,7 +25,7 @@ function App() {
     <Router>
       <div className="bg-dark-900 min-h-screen flex flex-col">
         <Header />
-        <main className="flex-grow pt-16">
+        <main className="flex-grow pt-14 sm:pt-16">
           <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center">
             <div className="text-white text-xl">Загрузка...</div>
           </div>}>
