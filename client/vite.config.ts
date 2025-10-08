@@ -13,5 +13,6 @@ export default defineConfig({
     // allowedHosts: [
     //   'koltech.dev'
     // ]
-  }
+  },
+  publicDir: 'public'
 });
