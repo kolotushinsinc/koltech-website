@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PageTransition from './components/PageTransition';
+import { HelmetProvider } from 'react-helmet-async';
 import './App.css';
 
 // Компоненты страниц
@@ -13,13 +14,14 @@ const ProjectDetail = React.lazy(() => import('./pages/ProjectDetail'));
 const BusinessAccelerator = React.lazy(() => import('./pages/BusinessAccelerator'));
 const KolTechLine = React.lazy(() => import('./pages/KolTechLine'));
 const KolTechLineArticle = React.lazy(() => import('./pages/KolTechLineArticle'));
-const WebDevelopment = React.lazy(() => import('./pages/WebDevelopment'));
-const MobileDevelopment = React.lazy(() => import('./pages/MobileDevelopment'));
-const AiSolutions = React.lazy(() => import('./pages/AiSolutions'));
-const Consulting = React.lazy(() => import('./pages/Consulting'));
+const WebDevelopment = React.lazy(() => import('./pages/services/WebDevelopment'));
+const MobileDevelopment = React.lazy(() => import('./pages/services/MobileApps'));
+const AiSolutions = React.lazy(() => import('./pages/services/AISolutions'));
+const Consulting = React.lazy(() => import('./pages/services/Consulting'));
 
 function App() {
   return (
+    <HelmetProvider>
     <Router>
       <div className="bg-dark-900 min-h-screen flex flex-col">
         <Header />
@@ -89,6 +91,7 @@ function App() {
         <Footer />
       </div>
     </Router>
+    </HelmetProvider>
   );
 }
 

@@ -9,7 +9,7 @@ interface ImageModalProps {
   baseUrl?: string;
 }
 
-export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl = 'https://api.koltech.dev' }: ImageModalProps) {
+export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl = 'http://localhost:5006' }: ImageModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isDragging, setIsDragging] = useState(false);

@@ -2,44 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles for animated background */
-@layer components {
-  .tech-pattern {
-    background-image:
-      radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-      radial-gradient(circle at 40% 20%, rgba(120, 219, 255, 0.3) 0%, transparent 50%);
-    background-size: 300px 300px, 200px 200px, 250px 250px;
-    background-position: 0% 0%, 30% 30%, 70% 70%;
-    animation: techPatternMove 30s ease-in-out infinite;
+/* Custom animations */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
   }
-  
-  .bg-grid-pattern {
-    background-image:
-      linear-gradient(rgba(120, 119, 198, 0.1) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(120, 119, 198, 0.1) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-  
-  @keyframes techPatternMove {
-    0%, 100% {
-      background-position: 0% 0%, 30% 30%, 70% 70%;
-    }
-    50% {
-      background-position: 100% 100%, 60% 60%, 30% 30%;
-    }
-  }
-  
-  @keyframes float {
-    0%, 100% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-20px);
-    }
-  }
-  
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
+  100% {
+    background-position: 1000px 0;
   }
 }
+
+.animate-shimmer {
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Image skeleton animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+

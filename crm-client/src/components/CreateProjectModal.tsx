@@ -125,7 +125,7 @@ export function CreateProjectModal({ isOpen, onClose, onCreateProject }: CreateP
       });
       
       // Здесь будет отправка на сервер
-      // const response = await axios.post('https://api.koltech.dev/api/projects', projectFormData, {
+      // const response = await axios.post('http://localhost:5006/api/projects', projectFormData, {
       //   headers: {
       //     'Content-Type': 'multipart/form-data',
       //     Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -138,7 +138,7 @@ export function CreateProjectModal({ isOpen, onClose, onCreateProject }: CreateP
         shortDescription: formData.shortDescription,
         fullDescription: formData.fullDescription,
         category: formData.category,
-        technologies: formData.technologies.split(',').map(tech => tech.trim()).filter(tech => tech),
+        technologies: formData.technologies.split(',').map((tech: string) => tech.trim()).filter((tech: string) => tech),
         link: formData.link,
         rating: parseInt(formData.rating),
         featured: formData.featured === 'true',

@@ -7,11 +7,4 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
-  server: {
-    host: true,
-    port: 5176,
-    // allowedHosts: [
-    //   'crm.koltech.dev'
-    // ]
-  }
 });

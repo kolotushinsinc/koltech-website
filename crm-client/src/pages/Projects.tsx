@@ -50,7 +50,7 @@ export function Projects() {
     const fetchProjects = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get('https://api.koltech.dev/api/projects', {
+        const response = await axios.get('http://localhost:5006/api/projects', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
@@ -98,7 +98,7 @@ export function Projects() {
         projectFormData.append('previewImages', image);
       });
 
-      const response = await axios.post('https://api.koltech.dev/api/projects', projectFormData, {
+      const response = await axios.post('http://localhost:5006/api/projects', projectFormData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
@@ -219,7 +219,7 @@ export function Projects() {
                   {/* Project Image */}
                   <div className="relative h-48 overflow-hidden">
                     <img
-                      src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `https://api.koltech.dev${project.mainImage}` : `https://api.koltech.dev/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
+                      src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `http://localhost:5006${project.mainImage}` : `http://localhost:5006/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
@@ -267,36 +267,52 @@ export function Projects() {
                     
                     {/* Technologies */}
                     <div className="flex flex-wrap gap-2">
-                      {project.technologies.flatMap(tech => {
-                        // Если элемент содержит кавычки и скобки, обрабатываем его как строку формата массива
-                        if (typeof tech === 'string' && tech.includes('[') && tech.includes(']')) {
+                      {(() => {
+                        let techArray: string[] = [];
+                        const techs = project.technologies;
+                        
+                        if (Array.isArray(techs)) {
+                          // If it's already an array, process each element to remove quotes and brackets
+                          techArray = techs.map(tech => {
+                            if (typeof tech === 'string') {
+                              return tech.replace(/[\[\]"]/g, '').trim();
+                            }
+                            return String(tech).replace(/[\[\]"]/g, '').trim();
+                          });
+                        } else if (techs && typeof techs === 'string') {
                           try {
-                            // Пытаемся распарсить строку как JSON
-                            const parsed = JSON.parse(tech.replace(/"/g, ''));
-                            return Array.isArray(parsed) ? parsed : [tech];
+                            // Try to parse as JSON if it's a string representation of array
+                            const parsed = JSON.parse(techs);
+                            if (Array.isArray(parsed)) {
+                              // Process each element to remove quotes and brackets
+                              techArray = parsed.map(tech => {
+                                if (typeof tech === 'string') {
+                                  return tech.replace(/[\[\]"]/g, '').trim();
+                                }
+                                return String(tech).replace(/[\[\]"]/g, '').trim();
+                              });
+                            } else {
+                              techArray = [];
+                            }
                           } catch (e) {
-                            // Если не удалось распарсить, разделяем по запятым и убираем кавычки
-                            return tech.replace(/[\[\]"]/g, '').split(',').map(t => t.trim()).filter(t => t);
+                            // If parsing fails, treat as comma-separated string
+                            const cleanedString = String(techs).replace(/[\[\]"]/g, '');
+                            techArray = cleanedString
+                              .split(',')
+                              .map((tech: string) => tech.trim())
+                              .filter((tech: string) => tech.length > 0);
                           }
                         }
-                        // Если элемент уже является массивом, просто возвращаем его
-                        else if (Array.isArray(tech)) {
-                          return tech;
-                        }
-                        // Если это обычная строка, разделяем по запятым
-                        else if (typeof tech === 'string') {
-                          return tech.split(',').map(t => t.trim()).filter(t => t);
-                        }
-                        // В противном случае возвращаем как есть
-                        return [tech];
-                      }).map((tech, index) => (
-                        <span
-                          key={index}
-                          className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-2 py-1 rounded text-xs font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-sm hover:shadow-primary-500/20"
-                        >
-                          {tech}
-                        </span>
-                      ))}
+                        
+                        return techArray.map((tech: string, index: number) => (
+                          <span
+                            key={index}
+                            className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-2 py-1 rounded text-xs font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-sm hover:shadow-primary-500/20"
+                          >
+                            {tech}
+                          </span>
+                        ));
+                      })()}
                     </div>
                   </div>
                   
@@ -398,7 +414,7 @@ function ProjectDetailModal({
               {project && project.previewImages && project.previewImages.length > 0 ? (
                 <>
                   <img
-                    src={`https://api.koltech.dev${currentImageIndex === 0 ? (project.mainImage || '') : (project.previewImages && project.previewImages[currentImageIndex - 1] ? project.previewImages[currentImageIndex - 1].startsWith('/uploads') ? project.previewImages[currentImageIndex - 1] : `/uploads${project.previewImages[currentImageIndex - 1]}` : '')}`}
+                    src={`http://localhost:5006${currentImageIndex === 0 ? (project.mainImage || '') : (project.previewImages && project.previewImages[currentImageIndex - 1] ? project.previewImages[currentImageIndex - 1].startsWith('/uploads') ? project.previewImages[currentImageIndex - 1] : `/uploads${project.previewImages[currentImageIndex - 1]}` : '')}`}
                     alt={`${project.title} изображение ${currentImageIndex + 1}`}
                     className="w-full h-full object-cover"
                   />
@@ -452,7 +468,7 @@ function ProjectDetailModal({
                 </>
               ) : (
                 <img
-                  src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `https://api.koltech.dev${project.mainImage}` : `https://api.koltech.dev/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
+                  src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `http://localhost:5006${project.mainImage}` : `http://localhost:5006/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
                   alt={project.title}
                   className="w-full h-full object-cover"
                 />
@@ -488,29 +504,7 @@ function ProjectDetailModal({
             <div>
               <h3 className="text-sm font-medium text-gray-400 mb-2">Технологии</h3>
               <div className="flex flex-wrap gap-2">
-                {project.technologies.flatMap(tech => {
-                  // Если элемент содержит кавычки и скобки, обрабатываем его как строку формата массива
-                  if (typeof tech === 'string' && tech.includes('[') && tech.includes(']')) {
-                    try {
-                      // Пытаемся распарсить строку как JSON
-                      const parsed = JSON.parse(tech.replace(/"/g, ''));
-                      return Array.isArray(parsed) ? parsed : [tech];
-                    } catch (e) {
-                      // Если не удалось распарсить, разделяем по запятым и убираем кавычки
-                      return tech.replace(/[\[\]"]/g, '').split(',').map(t => t.trim()).filter(t => t);
-                    }
-                  }
-                  // Если элемент уже является массивом, просто возвращаем его
-                  else if (Array.isArray(tech)) {
-                    return tech;
-                  }
-                  // Если это обычная строка, разделяем по запятым
-                  else if (typeof tech === 'string') {
-                    return tech.split(',').map(t => t.trim()).filter(t => t);
-                  }
-                  // В противном случае возвращаем как есть
-                  return [tech];
-                }).map((tech, index) => (
+                {project.technologies.map((tech, index) => (
                   <span
                     key={index}
                     className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-3 py-2 rounded-lg font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-lg hover:shadow-primary-500/20"

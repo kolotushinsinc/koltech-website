@@ -53,7 +53,8 @@ export function EditProjectModal({ isOpen, onClose, onUpdateProject, project }: 
         shortDescription: project.shortDescription || '',
         fullDescription: project.fullDescription || '',
         category: project.category || '',
-        technologies: Array.isArray(project.technologies) ? project.technologies.join(', ') : project.technologies || '',
+        technologies: Array.isArray(project.technologies) ? project.technologies.join(', ') :
+                      typeof project.technologies === 'string' ? project.technologies.replace(/[\[\]"]/g, '').split(',').map((t: string) => t.trim()).filter((t: string) => t).join(', ') : '',
         link: project.link || '',
         rating: project.rating?.toString() || '0',
         featured: project.featured?.toString() || 'false',
@@ -64,7 +65,7 @@ export function EditProjectModal({ isOpen, onClose, onUpdateProject, project }: 
       if (project.mainImage) {
         setExistingMainImage({
           id: 'main',
-          url: project.mainImage.startsWith('/uploads') ? `https://api.koltech.dev${project.mainImage}` : `https://api.koltech.dev/uploads${project.mainImage}`,
+          url: project.mainImage.startsWith('/uploads') ? `http://localhost:5006${project.mainImage}` : `http://localhost:5006/uploads${project.mainImage}`,
           filename: project.mainImage.split('/').pop() || 'main-image'
         });
       }
@@ -72,7 +73,7 @@ export function EditProjectModal({ isOpen, onClose, onUpdateProject, project }: 
       if (project.previewImages && Array.isArray(project.previewImages)) {
         const previewImagesData = project.previewImages.map((img: string, index: number) => ({
           id: `preview-${index}`,
-          url: img.startsWith('/uploads') ? `https://api.koltech.dev${img}` : `https://api.koltech.dev/uploads${img}`,
+          url: img.startsWith('/uploads') ? `http://localhost:5006${img}` : `http://localhost:5006/uploads${img}`,
           filename: img.split('/').pop() || `preview-${index}`
         }));
         setExistingPreviewImages(previewImagesData);
@@ -188,7 +189,7 @@ export function EditProjectModal({ isOpen, onClose, onUpdateProject, project }: 
       }
       
       // Отправка на сервер
-      const response = await axios.put(`https://api.koltech.dev/api/projects/${project._id}`, projectFormData, {
+      const response = await axios.put(`http://localhost:5006/api/projects/${project._id}`, projectFormData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${localStorage.getItem('token')}`

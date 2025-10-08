@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Code, Smartphone, Brain, Star } from 'lucide-react';
+import { ExternalLink, Code, Smartphone, Brain, Star, ArrowRight } from 'lucide-react';
 import { projectService } from '../services/api';
 import type { Project } from '../types';
+import { Helmet } from 'react-helmet-async';
 
 const SkeletonCard = () => (
   <div className="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden">
@@ -107,29 +108,38 @@ const Portfolio = () => {
 
   return (
     <div className="bg-dark-900">
+      <Helmet>
+        <title>Наше Портфолио | KolTech</title>
+        <meta name="description" content="Изучите наши лучшие проекты, которые демонстрируют инновационные решения в веб-разработке, мобильных приложениях и AI-технологиях" />
+        <meta name="keywords" content="Корпоративные сайты, E-commerce решения, Веб-приложения, Backend системы, Нативные приложения, Кроссплатформенные, PWA приложения, Enterprise решения, React Native, Flutter, Swift, Kotlin, Dart, Objective-C, Java, Xamarin, Ionic, Cordova, Firebase, SQLite, Realm, Core Data, Room, React, Vue.js, Angular, Node.js, TypeScript, JavaScript, Python, PHP, Next.js, Nuxt.js, Express.js, Django, Laravel, MySQL, Docker, AWS, GraphQL, Чат-боты, CV, Компьютерное зрение, Аналитика, Обработка текста, TensorFlow, PyTorch, OpenAI GPT, Hugging Face, Scikit-learn, Keras, OpenCV, NLTK, spaCy, Pandas, NumPy, Matplotlib, Jupyter, MLflow, Docker, Kubernetes, AWS SageMaker, Google AI, Azure ML, Apache Spark, Elasticsearch, MongoDB, PostgreSQL, Redis, Стратегическое планирование, Техническое консультирование, Безопасность и соответствие, Цифровая трансформация, Бизнес-Акселератор, Быстрый старт, AI-powered решения, Экспертная команда, Глобальный охват, Точное попадание, Надежность, Стратегическое планирование, Техническая реализация, Масштабирование, KolTechLine, FLineHub, KolTechValley, KolTechBusiness, Будущее Цифрового Сотрудничества, " />
+        <meta property="og:title" content="Наше Портфолио | KolTech" />
+        <meta property="og:description" content="Изучите наши лучшие проекты, которые демонстрируют инновационные решения в веб-разработке, мобильных приложениях и AI-технологиях" />
+        <meta property="og:type" content="website" />
+        <link rel="canonical" href="https://koltech.dev/portfolio" />
+      </Helmet>
       {/* Hero Section */}
-      <section className="pt-24 pb-12 px-6">
+      <section className="pt-20 sm:pt-24 pb-8 sm:pb-12 px-4 sm:px-6">
         <div className="container mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 bounce-in">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-4 sm:mb-6 bounce-in">
             Наше
-            <span className="gradient-text block mt-2">Портфолио</span>
+            <span className="gradient-text block mt-1 sm:mt-2">Портфолио</span>
           </h1>
-          <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto fade-in-delay">
-            Изучите наши лучшие проекты, которые демонстрируют инновационные решения 
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 max-w-3xl mx-auto fade-in-delay leading-relaxed">
+            Изучите наши лучшие проекты, которые демонстрируют инновационные решения
             в веб-разработке, мобильных приложениях и AI-технологиях
           </p>
         </div>
       </section>
 
       {/* Categories Filter */}
-      <section className="px-6 mb-12">
+      <section className="px-4 sm:px-6 mb-8 sm:mb-12">
         <div className="container mx-auto">
-          <div className="flex flex-wrap justify-center gap-4 slide-up">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 slide-up">
             {['Все проекты', 'Веб-разработка', 'Мобильная разработка', 'AI-решения'].map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 ${
+                className={`px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium text-sm sm:text-base transition-all duration-300 hover:scale-105 ${
                   selectedCategory === category
                     ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white pulse-glow'
                     : 'bg-dark-800 border border-dark-700 text-gray-300 hover:text-white hover:border-primary-500'
@@ -143,9 +153,9 @@ const Portfolio = () => {
       </section>
 
       {/* Portfolio Grid */}
-      <section className="px-6 pb-20">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20">
         <div className="container mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {isLoading ? (
               // Show skeleton cards while loading
               Array.from({ length: 6 }).map((_, index) => (
@@ -178,7 +188,7 @@ const Portfolio = () => {
                 {/* Project Image */}
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={`https://api.koltech.dev${project.mainImage}`}
+                    src={`http://localhost:5006${project.mainImage}`}
                     alt={project.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
@@ -223,36 +233,52 @@ const Portfolio = () => {
                   
                   {/* Technologies */}
                   <div className="flex flex-wrap gap-2">
-                    {project.technologies.flatMap(tech => {
-                      // Если элемент содержит кавычки и скобки, обрабатываем его как строку формата массива
-                      if (typeof tech === 'string' && tech.includes('[') && tech.includes(']')) {
+                    {(() => {
+                      let techArray: string[] = [];
+                      const techs = project.technologies;
+                      
+                      if (Array.isArray(techs)) {
+                        // If it's already an array, process each element to remove quotes and brackets
+                        techArray = techs.map(tech => {
+                          if (typeof tech === 'string') {
+                            return tech.replace(/[\[\]"]/g, '').trim();
+                          }
+                          return String(tech).replace(/[\[\]"]/g, '').trim();
+                        });
+                      } else if (techs && typeof techs === 'string') {
                         try {
-                          // Пытаемся распарсить строку как JSON
-                          const parsed = JSON.parse(tech.replace(/"/g, ''));
-                          return Array.isArray(parsed) ? parsed : [tech];
+                          // Try to parse as JSON if it's a string representation of array
+                          const parsed = JSON.parse(techs);
+                          if (Array.isArray(parsed)) {
+                            // Process each element to remove quotes and brackets
+                            techArray = parsed.map(tech => {
+                              if (typeof tech === 'string') {
+                                return tech.replace(/[\[\]"]/g, '').trim();
+                              }
+                              return String(tech).replace(/[\[\]"]/g, '').trim();
+                            });
+                          } else {
+                            techArray = [];
+                          }
                         } catch (e) {
-                          // Если не удалось распарсить, разделяем по запятым и убираем кавычки
-                          return tech.replace(/[\[\]"]/g, '').split(',').map(t => t.trim()).filter(t => t);
+                          // If parsing fails, treat as comma-separated string
+                          const cleanedString = String(techs).replace(/[\[\]"]/g, '');
+                          techArray = cleanedString
+                            .split(',')
+                            .map((tech: string) => tech.trim())
+                            .filter((tech: string) => tech.length > 0);
                         }
                       }
-                      // Если элемент уже является массивом, просто возвращаем его
-                      else if (Array.isArray(tech)) {
-                        return tech;
-                      }
-                      // Если это обычная строка, разделяем по запятым
-                      else if (typeof tech === 'string') {
-                        return tech.split(',').map(t => t.trim()).filter(t => t);
-                      }
-                      // В противном случае возвращаем как есть
-                      return [tech];
-                    }).map((tech, index) => (
-                      <span
-                        key={index}
-                        className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-2 py-1 rounded text-xs font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-sm hover:shadow-primary-500/20"
-                      >
-                        {tech}
-                      </span>
-                    ))}
+                      
+                      return techArray.map((tech: string, index: number) => (
+                        <span
+                          key={index}
+                          className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-2 py-1 rounded text-xs font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-sm hover:shadow-primary-500/20"
+                        >
+                          {tech}
+                        </span>
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
@@ -263,22 +289,25 @@ const Portfolio = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="px-6 pb-20">
+      <section className="py-20 px-6">
         <div className="container mx-auto">
-          <div className="bg-gradient-to-br from-dark-800 to-dark-700 p-12 rounded-3xl border border-dark-600 text-center slide-up">
-            <h2 className="text-3xl font-bold text-white mb-4">
-              Готовы создать что-то удивительное?
-            </h2>
-            <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
-              Наша команда экспертов поможет воплотить ваши идеи в инновационные цифровые решения
-            </p>
-            <Link
-              to="/contacts"
-              className="inline-flex items-center bg-gradient-to-r from-primary-500 to-accent-purple text-white px-8 py-4 rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all duration-300 pulse-glow"
-            >
-              Начать проект
-              <ExternalLink className="ml-2 w-5 h-5" />
-            </Link>
+          <div className="ios-card p-12 rounded-3xl text-center slide-up relative overflow-hidden">
+            <div className="absolute inset-0 hero-gradient opacity-10" />
+            <div className="relative">
+              <h2 className="text-4xl font-bold text-white mb-4">
+                Готовы создать что-то удивительное?
+              </h2>
+              <p className="text-gray-300 mb-8 max-w-2xl mx-auto text-lg">
+                Наша команда экспертов поможет воплотить ваши идеи в инновационные цифровые решения
+              </p>
+              <Link
+                to="/contacts"
+                className="ios-button inline-flex items-center"
+              >
+                Начать проект
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>

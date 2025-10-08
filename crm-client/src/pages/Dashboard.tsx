@@ -31,14 +31,14 @@ export function Dashboard() {
         setIsLoading(true);
         
         // Загрузка проектов
-        const projectsResponse = await axios.get('https://api.koltech.dev/api/projects', {
+        const projectsResponse = await axios.get('http://localhost:5006/api/projects', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         });
         
         // Загрузка сообщений обратной связи
-        const feedbackResponse = await axios.get('https://api.koltech.dev/api/contacts', {
+        const feedbackResponse = await axios.get('http://localhost:5006/api/contacts', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }

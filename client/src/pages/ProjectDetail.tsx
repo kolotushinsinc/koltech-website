@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Code, Smartphone, Brain, Star, Calendar, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Code, Smartphone, Brain, Star, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { projectService } from '../services/api';
 import type { Project } from '../types';
-import { ImageModal } from '../components/ImageModal';
+import ImageWithLoader from '../components/ImageWithLoader';
+import { Helmet } from 'react-helmet-async';
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -11,7 +12,6 @@ const ProjectDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -57,16 +57,6 @@ const ProjectDetail = () => {
     }
   };
 
-  const openImageModal = (index: number) => {
-    setCurrentImageIndex(index);
-    setIsImageModalOpen(true);
-  };
-
-  const getAllImages = () => {
-    if (!project) return [];
-    const images = [project.mainImage, ...(project.previewImages || [])];
-    return images.filter(Boolean);
-  };
 
   if (isLoading) {
     return (
@@ -99,6 +89,13 @@ const ProjectDetail = () => {
 
   return (
     <div className="bg-dark-900 min-h-screen">
+      <Helmet>
+        <title>{project.title} | KolTech</title>
+        <meta name="description" content={project.shortDescription} />
+        <meta name="keywords" content="Корпоративные сайты, E-commerce решения, Веб-приложения, Backend системы, Нативные приложения, Кроссплатформенные, PWA приложения, Enterprise решения, React Native, Flutter, Swift, Kotlin, Dart, Objective-C, Java, Xamarin, Ionic, Cordova, Firebase, SQLite, Realm, Core Data, Room, React, Vue.js, Angular, Node.js, TypeScript, JavaScript, Python, PHP, Next.js, Nuxt.js, Express.js, Django, Laravel, MySQL, Docker, AWS, GraphQL, Чат-боты, CV, Компьютерное зрение, Аналитика, Обработка текста, TensorFlow, PyTorch, OpenAI GPT, Hugging Face, Scikit-learn, Keras, OpenCV, NLTK, spaCy, Pandas, NumPy, Matplotlib, Jupyter, MLflow, Docker, Kubernetes, AWS SageMaker, Google AI, Azure ML, Apache Spark, Elasticsearch, MongoDB, PostgreSQL, Redis, Стратегическое планирование, Техническое консультирование, Безопасность и соответствие, Цифровая трансформация, Бизнес-Акселератор, Быстрый старт, AI-powered решения, Экспертная команда, Глобальный охват, Точное попадание, Надежность, Стратегическое планирование, Техническая реализация, Масштабирование, KolTechLine, FLineHub, KolTechValley, KolTechBusiness, Будущее Цифрового Сотрудничества, " />
+        <meta property="og:description" content={project.shortDescription} />
+        <meta property="og:type" content="website" />
+      </Helmet>
       {/* Hero Section */}
       <section className="pt-24 pb-12 px-6">
         <div className="container mx-auto">
@@ -112,17 +109,16 @@ const ProjectDetail = () => {
           
           <div className="flex flex-col md:flex-row gap-8">
             <div className="md:w-2/3">
-              <div className="relative rounded-2xl overflow-hidden h-96">
+              <div className="relative rounded-2xl overflow-hidden h-80 sm:h-96">
                 {/* Image Carousel */}
                 <div className="relative w-full h-full">
                   {project && project.previewImages && project.previewImages.length > 0 ? (
                     <>
-                      <img
-                        src={`https://api.koltech.dev${currentImageIndex === 0 ? project.mainImage : project.previewImages[currentImageIndex - 1]}`}
+                      <ImageWithLoader
+                        key={currentImageIndex}
+                        src={`http://localhost:5006${currentImageIndex === 0 ? project.mainImage : project.previewImages[currentImageIndex - 1]}`}
                         alt={`${project.title} изображение ${currentImageIndex + 1}`}
-                        className="w-full h-full object-cover cursor-pointer"
-                        onClick={() => openImageModal(currentImageIndex)}
-                        style={{ cursor: 'pointer' }}
+                        className="w-full h-full object-cover"
                       />
                       {/* Navigation Arrows */}
                       {project.previewImages.length > 0 && (
@@ -133,9 +129,9 @@ const ProjectDetail = () => {
                               e.stopPropagation();
                               setCurrentImageIndex(prev => prev === 0 ? project.previewImages.length : prev - 1);
                             }}
-                            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-dark-900/70 text-white p-2 rounded-full hover:bg-dark-900/90 transition z-10"
+                            className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 bg-dark-900/70 text-white p-1.5 sm:p-2 rounded-full hover:bg-dark-900/90 transition z-10"
                           >
-                            <ChevronLeft className="w-5 h-5" />
+                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                           <button
                             onClick={(e) => {
@@ -143,21 +139,21 @@ const ProjectDetail = () => {
                               e.stopPropagation();
                               setCurrentImageIndex(prev => prev === project.previewImages.length ? 0 : prev + 1);
                             }}
-                            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-dark-900/70 text-white p-2 rounded-full hover:bg-dark-900/90 transition z-10"
+                            className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 bg-dark-900/70 text-white p-1.5 sm:p-2 rounded-full hover:bg-dark-900/90 transition z-10"
                           >
-                            <ChevronRight className="w-5 h-5" />
+                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                         </>
                       )}
                       {/* Image Indicators */}
-                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+                      <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1.5 sm:space-x-2 z-10">
                         <button
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             setCurrentImageIndex(0);
                           }}
-                          className={`w-3 h-3 rounded-full ${currentImageIndex === 0 ? 'bg-white' : 'bg-white/50'}`}
+                          className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${currentImageIndex === 0 ? 'bg-white' : 'bg-white/50'}`}
                         />
                         {project.previewImages.map((_, index) => (
                           <button
@@ -167,18 +163,17 @@ const ProjectDetail = () => {
                               e.stopPropagation();
                               setCurrentImageIndex(index + 1);
                             }}
-                            className={`w-3 h-3 rounded-full ${currentImageIndex === index + 1 ? 'bg-white' : 'bg-white/50'}`}
+                            className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${currentImageIndex === index + 1 ? 'bg-white' : 'bg-white/50'}`}
                           />
                         ))}
                       </div>
                     </>
                   ) : (
-                    <img
-                      src={`https://api.koltech.dev${project.mainImage}`}
+                    <ImageWithLoader
+                      key="main-image"
+                      src={`http://localhost:5006${project.mainImage}`}
                       alt={project.title}
-                      className="w-full h-full object-cover cursor-pointer"
-                      onClick={() => openImageModal(0)}
-                      style={{ cursor: 'pointer' }}
+                      className="w-full h-full object-cover"
                     />
                   )}
                   {/* Category Badge */}
@@ -230,36 +225,52 @@ const ProjectDetail = () => {
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-white mb-6">Технологии</h2>
           <div className="flex flex-wrap gap-3">
-            {project.technologies.flatMap(tech => {
-              // Если элемент содержит кавычки и скобки, обрабатываем его как строку формата массива
-              if (typeof tech === 'string' && tech.includes('[') && tech.includes(']')) {
+            {(() => {
+              let techArray: string[] = [];
+              const techs = project.technologies;
+              
+              if (Array.isArray(techs)) {
+                // If it's already an array, process each element to remove quotes and brackets
+                techArray = techs.map(tech => {
+                  if (typeof tech === 'string') {
+                    return tech.replace(/[\[\]"]/g, '').trim();
+                  }
+                  return String(tech).replace(/[\[\]"]/g, '').trim();
+                });
+              } else if (techs && typeof techs === 'string') {
                 try {
-                  // Пытаемся распарсить строку как JSON
-                  const parsed = JSON.parse(tech.replace(/"/g, ''));
-                  return Array.isArray(parsed) ? parsed : [tech];
+                  // Try to parse as JSON if it's a string representation of array
+                  const parsed = JSON.parse(techs);
+                  if (Array.isArray(parsed)) {
+                    // Process each element to remove quotes and brackets
+                    techArray = parsed.map(tech => {
+                      if (typeof tech === 'string') {
+                        return tech.replace(/[\[\]"]/g, '').trim();
+                      }
+                      return String(tech).replace(/[\[\]"]/g, '').trim();
+                    });
+                  } else {
+                    techArray = [];
+                  }
                 } catch (e) {
-                  // Если не удалось распарсить, разделяем по запятым и убираем кавычки
-                  return tech.replace(/[\[\]"]/g, '').split(',').map(t => t.trim()).filter(t => t);
+                  // If parsing fails, treat as comma-separated string
+                  const cleanedString = String(techs).replace(/[\[\]"]/g, '');
+                  techArray = cleanedString
+                    .split(',')
+                    .map((tech: string) => tech.trim())
+                    .filter((tech: string) => tech.length > 0);
                 }
               }
-              // Если элемент уже является массивом, просто возвращаем его
-              else if (Array.isArray(tech)) {
-                return tech;
-              }
-              // Если это обычная строка, разделяем по запятым
-              else if (typeof tech === 'string') {
-                return tech.split(',').map(t => t.trim()).filter(t => t);
-              }
-              // В противном случае возвращаем как есть
-              return [tech];
-            }).map((tech, index) => (
-              <span
-                key={index}
-                className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-4 py-2 rounded-lg font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-lg hover:shadow-primary-500/20"
-              >
-                {tech}
-              </span>
-            ))}
+              
+              return techArray.map((tech: string, index: number) => (
+                <span
+                  key={index}
+                  className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-4 py-2 rounded-lg font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-lg hover:shadow-primary-500/20"
+                >
+                  {tech}
+                </span>
+              ));
+            })()}
           </div>
         </div>
       </section>
@@ -326,14 +337,6 @@ const ProjectDetail = () => {
         </div>
       </section>
 
-      {/* Image Modal */}
-      <ImageModal
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
-        images={getAllImages()}
-        initialIndex={currentImageIndex}
-        baseUrl="https://api.koltech.dev"
-      />
     </div>
   );
 };

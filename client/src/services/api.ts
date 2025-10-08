@@ -3,7 +3,7 @@ import type { Project, ContactFormData } from '../types';
 
 // Создаем экземпляр axios с базовой конфигурацией
 const api = axios.create({
-  baseURL: 'https://api.koltech.dev/api',
+  baseURL: 'http://localhost:5006/api',
   headers: {
     'Content-Type': 'application/json',
   },
