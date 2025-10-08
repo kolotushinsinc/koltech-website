@@ -23,6 +23,8 @@ const Home = () => {
           loop
           muted
           playsInline
+          preload="auto"
+          disablePictureInPicture
         >
           <source src="/video1.mp4" type="video/mp4" />
           Your browser does not support the video tag.
