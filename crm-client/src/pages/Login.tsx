@@ -50,7 +50,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
     setIsLoading(true);
     
     try {
-      const response = await axios.post('http://localhost:5006/api/auth/login', formData);
+      const response = await axios.post('https://api.koltech.dev/api/auth/login', formData);
       
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);

@@ -116,7 +116,7 @@ const ProjectDetail = () => {
                     <>
                       <ImageWithLoader
                         key={currentImageIndex}
-                        src={`http://localhost:5006${currentImageIndex === 0 ? project.mainImage : project.previewImages[currentImageIndex - 1]}`}
+                        src={`https://api.koltech.dev${currentImageIndex === 0 ? project.mainImage : project.previewImages[currentImageIndex - 1]}`}
                         alt={`${project.title} изображение ${currentImageIndex + 1}`}
                         className="w-full h-full object-cover"
                       />
@@ -171,7 +171,7 @@ const ProjectDetail = () => {
                   ) : (
                     <ImageWithLoader
                       key="main-image"
-                      src={`http://localhost:5006${project.mainImage}`}
+                      src={`https://api.koltech.dev${project.mainImage}`}
                       alt={project.title}
                       className="w-full h-full object-cover"
                     />

@@ -50,7 +50,7 @@ export function Projects() {
     const fetchProjects = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get('http://localhost:5006/api/projects', {
+        const response = await axios.get('https://api.koltech.dev/api/projects', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
@@ -98,7 +98,7 @@ export function Projects() {
         projectFormData.append('previewImages', image);
       });
 
-      const response = await axios.post('http://localhost:5006/api/projects', projectFormData, {
+      const response = await axios.post('https://api.koltech.dev/api/projects', projectFormData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
@@ -219,7 +219,7 @@ export function Projects() {
                   {/* Project Image */}
                   <div className="relative h-48 overflow-hidden">
                     <img
-                      src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `http://localhost:5006${project.mainImage}` : `http://localhost:5006/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
+                      src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `https://api.koltech.dev${project.mainImage}` : `https://api.koltech.dev/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
@@ -414,7 +414,7 @@ function ProjectDetailModal({
               {project && project.previewImages && project.previewImages.length > 0 ? (
                 <>
                   <img
-                    src={`http://localhost:5006${currentImageIndex === 0 ? (project.mainImage || '') : (project.previewImages && project.previewImages[currentImageIndex - 1] ? project.previewImages[currentImageIndex - 1].startsWith('/uploads') ? project.previewImages[currentImageIndex - 1] : `/uploads${project.previewImages[currentImageIndex - 1]}` : '')}`}
+                    src={`https://api.koltech.dev${currentImageIndex === 0 ? (project.mainImage || '') : (project.previewImages && project.previewImages[currentImageIndex - 1] ? project.previewImages[currentImageIndex - 1].startsWith('/uploads') ? project.previewImages[currentImageIndex - 1] : `/uploads${project.previewImages[currentImageIndex - 1]}` : '')}`}
                     alt={`${project.title} изображение ${currentImageIndex + 1}`}
                     className="w-full h-full object-cover"
                   />
@@ -468,7 +468,7 @@ function ProjectDetailModal({
                 </>
               ) : (
                 <img
-                  src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `http://localhost:5006${project.mainImage}` : `http://localhost:5006/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
+                  src={project.mainImage ? (project.mainImage.startsWith('/uploads') ? `https://api.koltech.dev${project.mainImage}` : `https://api.koltech.dev/uploads${project.mainImage}`) : '/placeholder-image.jpg'}
                   alt={project.title}
                   className="w-full h-full object-cover"
                 />

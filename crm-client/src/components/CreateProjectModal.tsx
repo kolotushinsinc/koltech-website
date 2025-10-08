@@ -125,7 +125,7 @@ export function CreateProjectModal({ isOpen, onClose, onCreateProject }: CreateP
       });
       
       // Здесь будет отправка на сервер
-      // const response = await axios.post('http://localhost:5006/api/projects', projectFormData, {
+      // const response = await axios.post('https://api.koltech.dev/api/projects', projectFormData, {
       //   headers: {
       //     'Content-Type': 'multipart/form-data',
       //     Authorization: `Bearer ${localStorage.getItem('token')}`
