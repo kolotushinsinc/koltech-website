@@ -7,7 +7,7 @@ import {
   deleteProject
 } from '../controllers/projectController';
 import { authenticate } from '../middleware/auth';
-import { uploadProjectImages } from '../middleware/upload';
+import { uploadProjectImages, handleUploadError } from '../middleware/upload';
 
 const router = Router();
 
@@ -24,12 +24,12 @@ router.get('/:id', getProjectById);
 // @route   POST /api/projects
 // @desc    Create new project
 // @access  Private
-router.post('/', authenticate, uploadProjectImages, createProject);
+router.post('/', authenticate, uploadProjectImages, handleUploadError, createProject);
 
 // @route   PUT /api/projects/:id
 // @desc    Update project
 // @access  Private
-router.put('/:id', authenticate, uploadProjectImages, updateProject);
+router.put('/:id', authenticate, uploadProjectImages, handleUploadError, updateProject);
 
 // @route   DELETE /api/projects/:id
 // @desc    Delete project

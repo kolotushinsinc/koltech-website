@@ -366,7 +366,7 @@ export function CreateProjectModal({ isOpen, onClose, onCreateProject }: CreateP
                 <div className="flex flex-col items-center">
                   <Upload className="w-12 h-12 text-slate-400 mb-2" />
                   <p className="text-slate-300 font-medium">Загрузите главное изображение</p>
-                  <p className="text-slate-400 text-sm mt-1">PNG, JPG или JPEG (макс. 5MB)</p>
+                  <p className="text-slate-400 text-sm mt-1">PNG, JPG или JPEG (макс. 10MB)</p>
                 </div>
               )}
             </div>
@@ -390,7 +390,7 @@ export function CreateProjectModal({ isOpen, onClose, onCreateProject }: CreateP
             >
               <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
               <p className="text-slate-300 font-medium">Добавить изображения</p>
-              <p className="text-slate-400 text-sm">PNG, JPG или JPEG (макс. 5MB)</p>
+              <p className="text-slate-400 text-sm">PNG, JPG или JPEG (макс. 10MB)</p>
             </div>
             <input
               type="file"

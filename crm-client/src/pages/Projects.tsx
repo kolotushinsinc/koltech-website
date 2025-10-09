@@ -102,15 +102,32 @@ export function Projects() {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
-        }
+        },
+        // Увеличиваем таймаут для больших файлов
+        timeout: 60000 // 60 секунд
       });
 
       if (response.data.success) {
         setProjects(prev => [response.data.project, ...prev]);
         setIsCreateModalOpen(false);
+        alert('Проект успешно создан!');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating project:', error);
+      if (error.response) {
+        // Ошибка ответа от сервера
+        if (error.response.status === 413) {
+          alert('Ошибка: Размер файла превышает допустимый лимит (10MB). Пожалуйста, выберите файлы меньшего размера.');
+        } else {
+          alert(`Ошибка при создании проекта: ${error.response.data.message || 'Неизвестная ошибка'}`);
+        }
+      } else if (error.request) {
+        // Ошибка запроса (нет ответа)
+        alert('Ошибка: Не удалось подключиться к серверу. Пожалуйста, проверьте подключение к интернету.');
+      } else {
+        // Другая ошибка
+        alert(`Ошибка: ${error.message}`);
+      }
     }
   };
 

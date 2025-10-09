@@ -1,6 +1,6 @@
 import multer from 'multer';
 import path from 'path';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 // Настройка хранилища для загруженных файлов
 const storage = multer.diskStorage({
@@ -30,10 +30,38 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // Ограничение размера файла: 5MB
+    fileSize: 10 * 1024 * 1024, // Ограничение размера файла: 10MB (увеличено с 5MB)
     files: 11 // Максимум 11 файлов (1 главное изображение + 10 для предпросмотра)
   }
 });
+
+// Обработчик ошибок загрузки файлов
+export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        message: 'Размер файла превышает допустимый лимит (10MB)'
+      });
+    } else if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Превышено максимальное количество файлов'
+      });
+    } else if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Неожиданное поле файла'
+      });
+    }
+  } else if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Ошибка при загрузке файлов'
+    });
+  }
+  next();
+};
 
 // Экспорт middleware для загрузки изображений проекта
 export const uploadProjectImages = upload.fields([
