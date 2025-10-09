@@ -15,8 +15,8 @@ const Footer = () => {
               <span className="text-lg sm:text-xl font-bold text-white">KolTech</span>
             </div>
             <p className="text-gray-400 mb-4 max-w-md text-sm sm:text-base">
-              Инновационная платформа для разработки веб-сайтов, мобильных приложений и AI-решений.
-              Мы создаем будущее технологий уже сегодня.
+              {/* Фрилансерская инициатива в области разработки веб-сайтов, мобильных приложений и AI-решений. Мы создаем будущее технологий уже сегодня. */}
+              Независимые эксперты в вебе, мобильной разработке и AI. Делаем то, что цепляет — быстро, честно и без «агентских» схем.
             </p>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
               <a
@@ -68,9 +68,6 @@ const Footer = () => {
         <div className="border-t border-dark-700 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center">
           <p className="text-gray-500 text-xs sm:text-sm">
             © 2025 KolTech. Все права защищены. Создано для инновационного будущего.
-          </p>
-          <p className="text-gray-500 text-xs sm:text-sm">
-            <a href="https://t.me/Kolotushin">Михаил Колотушин</a>
           </p>
         </div>
       </div>
