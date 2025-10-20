@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
+import ReactDOM from 'react-dom';
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -9,28 +10,69 @@ interface ImageModalProps {
   baseUrl?: string;
 }
 
-export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl = 'https://api.koltech.dev' }: ImageModalProps) {
+export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl = 'http://localhost:5006' }: ImageModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
+
+  // Create a modal root element if it doesn't exist
+  useEffect(() => {
+    let root = document.getElementById('modal-root');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'modal-root';
+      document.body.appendChild(root);
+    }
+    setModalRoot(root);
+
+    return () => {
+      // Clean up only if we created it
+      if (document.getElementById('modal-root') && !document.getElementById('modal-root')?.childElementCount) {
+        document.body.removeChild(root!);
+      }
+    };
+  }, []);
+
+  // Handle body scroll locking
+  useEffect(() => {
+    if (isOpen) {
+      // Save the current scroll position and body styles
+      const scrollY = window.scrollY;
+      const scrollX = window.scrollX;
+      const bodyStyle = {
+        position: document.body.style.position,
+        top: document.body.style.top,
+        left: document.body.style.left,
+        width: document.body.style.width,
+        overflow: document.body.style.overflow
+      };
+
+      // Lock the body in place
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = `-${scrollX}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        // Restore the body styles and scroll position
+        document.body.style.position = bodyStyle.position;
+        document.body.style.top = bodyStyle.top;
+        document.body.style.left = bodyStyle.left;
+        document.body.style.width = bodyStyle.width;
+        document.body.style.overflow = bodyStyle.overflow;
+        window.scrollTo(scrollX, scrollY);
+      };
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     setCurrentIndex(initialIndex);
     setZoomLevel(1);
     setPosition({ x: 0, y: 0 });
-    
-    // Блокируем прокрутку страницы при открытии модального окна
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [initialIndex, isOpen]);
 
   useEffect(() => {
@@ -92,14 +134,6 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl 
     }
   };
 
-  const handleImageClick = (e: React.MouseEvent) => {
-    // Prevent event propagation if we're dragging
-    if (!isDragging && zoomLevel === 1) {
-      // Close the modal when clicking on the image
-      onClose();
-    }
-  };
-
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging && zoomLevel > 1) {
       setPosition({
@@ -114,6 +148,8 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl 
   };
 
   const getImageUrl = (imagePath: string) => {
+    if (!imagePath) return '';
+    
     if (imagePath.startsWith('/uploads')) {
       return `${baseUrl}${imagePath}`;
     } else if (imagePath.startsWith('http')) {
@@ -123,15 +159,38 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl 
     }
   };
 
-  if (!isOpen || !images.length) return null;
+  if (!isOpen || !images.length || !modalRoot) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[99999] flex flex-col" style={{ height: '100vh' }}>
+  // Use portal to render the modal outside the normal DOM hierarchy
+  return ReactDOM.createPortal(
+    <div 
+      className="fixed inset-0 w-screen h-screen bg-black z-[9999999]"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 9999999
+      }}
+    >
       {/* Top controls */}
-      <div className="flex justify-between items-center p-3 sm:p-4 bg-black/70">
+      <div 
+        className="flex justify-between items-center p-4"
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          zIndex: 10000000
+        }}
+      >
         {/* Image Counter */}
         {images.length > 1 && (
-          <div className="bg-black/80 text-white px-3 py-1.5 rounded-full text-xs sm:text-sm z-20">
+          <div className="bg-black/80 text-white px-3 py-1.5 rounded-full text-sm">
             {currentIndex + 1} / {images.length}
           </div>
         )}
@@ -139,31 +198,42 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="bg-black/80 text-white p-2 sm:p-2.5 rounded-full hover:bg-black/90 transition z-20"
+          className="bg-black/80 text-white p-3 rounded-full hover:bg-black/90 transition"
           aria-label="Закрыть"
         >
-          <X className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+          <X className="w-6 h-6" />
         </button>
       </div>
       
       {/* Main content area */}
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden p-2 sm:p-4">
+      <div 
+        className="flex-1 flex items-center justify-center relative overflow-hidden"
+        style={{ zIndex: 10000000 }}
+      >
         {/* Navigation Arrows */}
         {images.length > 1 && (
           <>
             <button
               onClick={() => navigateImage(-1)}
-              className="absolute left-1 sm:left-2 md:left-4 top-1/2 transform -translate-y-1/2 bg-black/80 text-white p-1.5 sm:p-2 rounded-full hover:bg-black/90 transition z-20"
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white text-black p-3 rounded-full hover:bg-gray-200 transition shadow-lg"
+              style={{ 
+                zIndex: 10000001,
+                boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)'
+              }}
               aria-label="Предыдущее изображение"
             >
-              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              <ChevronLeft className="w-6 h-6" />
             </button>
             <button
               onClick={() => navigateImage(1)}
-              className="absolute right-1 sm:right-2 md:right-4 top-1/2 transform -translate-y-1/2 bg-black/80 text-white p-1.5 sm:p-2 rounded-full hover:bg-black/90 transition z-20"
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white text-black p-3 rounded-full hover:bg-gray-200 transition shadow-lg"
+              style={{ 
+                zIndex: 10000001,
+                boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)'
+              }}
               aria-label="Следующее изображение"
             >
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              <ChevronRight className="w-6 h-6" />
             </button>
           </>
         )}
@@ -175,7 +245,7 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl 
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          style={{ cursor: zoomLevel > 1 ? 'grab' : 'pointer' }}
+          style={{ cursor: zoomLevel > 1 ? 'grab' : 'default' }}
         >
           <img
             src={getImageUrl(images[currentIndex])}
@@ -184,39 +254,58 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0, baseUrl 
             style={{
               transform: `scale(${zoomLevel}) translate(${position.x}px, ${position.y}px)`,
               transition: isDragging ? 'none' : 'transform 0.2s ease',
-              cursor: isDragging ? 'grabbing' : zoomLevel > 1 ? 'grab' : 'pointer'
+              cursor: isDragging ? 'grabbing' : zoomLevel > 1 ? 'grab' : 'default'
             }}
             draggable="false"
-            onClick={handleImageClick}
           />
         </div>
       </div>
       
       {/* Bottom controls */}
-      <div className="flex justify-center p-3 sm:p-4 bg-black/70">
+      <div 
+        className="flex justify-between items-center p-4"
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          zIndex: 10000000
+        }}
+      >
+        {/* Download Button */}
+        <a
+          href={getImageUrl(images[currentIndex])}
+          download
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-black/80 text-white px-4 py-2 rounded-full flex items-center space-x-2 hover:bg-black/90 transition"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Download className="w-5 h-5" />
+          <span className="text-sm">Скачать</span>
+        </a>
+        
         {/* Zoom Controls */}
-        <div className="flex items-center space-x-2 sm:space-x-3 bg-black/80 px-3 sm:px-4 py-2 rounded-full z-20">
+        <div className="flex items-center space-x-3 bg-black/80 px-4 py-2 rounded-full">
           <button
             onClick={() => handleZoom(-0.1)}
             disabled={zoomLevel <= 0.5}
-            className="text-white p-1 sm:p-1.5 rounded-full hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-white p-1.5 rounded-full hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Уменьшить"
           >
-            <ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ZoomOut className="w-5 h-5" />
           </button>
-          <span className="text-white text-xs sm:text-sm min-w-[35px] sm:min-w-[40px] text-center">
+          <span className="text-white text-sm min-w-[40px] text-center">
             {Math.round(zoomLevel * 100)}%
           </span>
           <button
             onClick={() => handleZoom(0.1)}
             disabled={zoomLevel >= 3}
-            className="text-white p-1 sm:p-1.5 rounded-full hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-white p-1.5 rounded-full hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Увеличить"
           >
-            <ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ZoomIn className="w-5 h-5" />
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    modalRoot
   );
 }

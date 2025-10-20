@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Users, 
@@ -16,23 +16,16 @@ import {
   Award,
   MessageSquare,
   FileText,
-  Settings
+  Settings,
+  ChevronRight
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { motion } from 'framer-motion';
 
 const Consulting = () => {
-  const [visibleElements, setVisibleElements] = useState<number[]>([]);
-
+  // Scroll to top on component mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      Array.from({ length: 100 }).forEach((_, index) => {
-        setTimeout(() => {
-          setVisibleElements(prev => [...prev, index]);
-        }, index * 80);
-      });
-    }, 300);
-
-    return () => clearTimeout(timer);
+    window.scrollTo(0, 0);
   }, []);
 
   const services = [
@@ -132,143 +125,268 @@ const Consulting = () => {
           <link rel="canonical" href="https://koltech.dev/consulting" />
       </Helmet>
       {/* Hero Section */}
-      <section className="pt-20 sm:pt-24 pb-12 sm:pb-16 px-4 sm:px-6 hero-gradient relative overflow-hidden">
-        <div className="absolute inset-0 tech-pattern opacity-20" />
-        <div className="container mx-auto relative">
-          <div className="grid lg:grid-cols-2 gap-8 sm:gap-12 items-center">
-            <div className="bounce-in">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 sm:mb-6 leading-tight">
-                IT-
-                <span className="text-shimmer block">консалтинг</span>
-              </h1>
-              <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-8 leading-relaxed fade-in-delay">
-                Экспертные консультации по цифровой трансформации, архитектуре систем
-                и стратегическому планированию IT-развития вашего бизнеса.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 slide-up">
-                <Link
-                  to="/contacts"
-                  className="ios-button inline-flex items-center justify-center text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-4"
-                >
-                  Получить консультацию
-                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-                </Link>
-                <Link
-                  to="/portfolio"
-                  className="glass-effect text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold hover:bg-white/10 transition-all duration-300 text-center text-sm sm:text-base"
-                >
-                  Кейсы консалтинга
-                </Link>
-              </div>
-            </div>
-            <div className="relative slide-up floating-elements h-full flex flex-col" style={{ animationDelay: '0.3s' }}>
-              <div className="ios-card p-4 sm:p-6 md:p-8 rounded-3xl h-full flex flex-col">
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                  {[Target, TrendingUp, Shield, Lightbulb].map((Icon, index) => (
-                    <div
-                      key={index}
-                      className={`p-4 sm:p-6 glass-effect rounded-2xl text-center magnetic-hover ${
-                        visibleElements.includes(index) ? 'stagger-animation' : 'opacity-0'
-                      }`}
-                      style={{ animationDelay: `${index * 0.1}s` }}
-                    >
-                      <Icon className="w-6 h-6 sm:w-8 sm:h-8 text-primary-400 mx-auto mb-1 sm:mb-2" />
-                      <p className="text-white text-xs sm:text-sm font-medium">
-                        {['Стратегия', 'Рост', 'Безопасность', 'Инновации'][index]}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-center mt-auto">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 mx-auto bg-gradient-to-br from-primary-500 to-accent-purple rounded-3xl flex items-center justify-center mb-3 sm:mb-4 magnetic-hover">
-                    <Users className="w-10 h-10 sm:w-12 sm:w-16 md:w-16 md:h-16 text-white" />
-                  </div>
-                  <p className="text-white font-semibold text-sm sm:text-base">Экспертные консультации</p>
-                </div>
-              </div>
-            </div>
+      <section className="hero-with-video relative min-h-[70vh] flex items-center overflow-hidden pt-20 sm:pt-24">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 z-0">
+          {/* Animated circles */}
+          <motion.div
+            className="absolute w-[500px] h-[500px] rounded-full bg-orange-500/5 blur-3xl"
+            style={{ top: '-10%', right: '-10%' }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3],
+              rotate: [0, 90, 0]
+            }}
+            transition={{ 
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full bg-yellow-500/5 blur-3xl"
+            style={{ bottom: '-5%', left: '-5%' }}
+            animate={{ 
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.4, 0.2],
+              rotate: [0, -60, 0]
+            }}
+            transition={{ 
+              duration: 18,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[300px] h-[300px] rounded-full bg-red-500/5 blur-3xl"
+            style={{ top: '30%', left: '20%' }}
+            animate={{ 
+              scale: [1, 1.4, 1],
+              opacity: [0.2, 0.3, 0.2],
+              y: [0, -30, 0]
+            }}
+            transition={{ 
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          
+          {/* Floating particles */}
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-orange-400 rounded-full"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+              }}
+              animate={{ 
+                opacity: [0.3, 0.7, 0.3],
+                y: [0, -10, 0]
+              }}
+              transition={{ 
+                duration: 2 + Math.random() * 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: Math.random() * 2
+              }}
+            />
+          ))}
+          
+          {/* Grid pattern overlay */}
+          <div className="absolute inset-0 bg-dark-900/80 tech-pattern z-0"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 sm:px-8 z-10 py-12 sm:py-16">
+          <div className="max-w-4xl">
+            <motion.h1 
+              className="heading-xl text-white mb-6 relative"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <motion.span
+                className="absolute -left-10 -top-10 text-orange-500/10 text-9xl font-bold z-0 hidden sm:block"
+                animate={{ 
+                  opacity: [0.3, 0.5, 0.3],
+                  rotate: [-5, 0, -5]
+                }}
+                transition={{ 
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                C
+              </motion.span>
+              IT-
+              <span className="block text-orange-500 relative">
+                консалтинг
+                <motion.div
+                  className="absolute -bottom-2 left-0 h-1 bg-orange-500/50 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 1.5, delay: 1 }}
+                />
+              </span>
+            </motion.h1>
+
+            <motion.p 
+              className="subheading text-gray-300 mb-8 max-w-3xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Экспертные консультации по цифровой трансформации, архитектуре систем
+              и стратегическому планированию IT-развития вашего бизнеса.
+            </motion.p>
+            
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-5 justify-start"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+            >
+              <Link
+                to="/contacts"
+                className="modern-button button-orange inline-flex items-center justify-center"
+              >
+                <span>Получить консультацию</span>
+                <ChevronRight className="ml-2 w-4 h-4" />
+              </Link>
+              
+              <Link
+                to="/portfolio"
+                className="modern-ghost-button inline-flex items-center justify-center"
+              >
+                <span>Кейсы консалтинга</span>
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 px-6 bg-dark-800/50">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-4 gap-8">
+      <section className="content-section section-dark py-20 sm:py-28 bg-[#0c1222]">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Наши Достижения</h2>
+            <p className="subheading max-w-2xl mx-auto">
+              Результаты, которыми мы гордимся
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <div 
-                key={index} 
-                className={`text-center ios-card p-6 rounded-2xl magnetic-hover ${
-                  visibleElements.includes(index + 4) ? 'stagger-animation' : 'opacity-0'
-                }`}
-                style={{ animationDelay: `${(index + 4) * 0.1}s` }}
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="dimensional-card card-orange p-6 text-center"
               >
                 <div className="flex justify-center mb-4">
-                  <div className="p-3 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl">
-                    <stat.icon className="w-6 h-6 text-white" />
+                  <div className="icon-container icon-orange">
+                    <stat.icon className="w-5 h-5 text-white relative z-10" />
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-white mb-2">{stat.number}</div>
-                <div className="text-gray-400">{stat.label}</div>
-              </div>
+                <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">{stat.number}</h3>
+                <p className="text-gray-400 text-sm">{stat.label}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Services Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4 bounce-in">Консалтинговые услуги</h2>
-            <p className="text-base sm:text-xl text-gray-400 max-w-3xl mx-auto fade-in-delay">
+      <section className="content-section section-gradient py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Консалтинговые услуги</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Комплексная экспертная поддержка на всех этапах IT-развития
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {services.map((service, index) => (
-              <div
-                key={index}
-                className="ios-card p-6 sm:p-8 rounded-3xl magnetic-hover slide-up h-full flex flex-col"
-                style={{ animationDelay: `${index * 0.2}s` }}
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 sm:mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl flex items-center justify-center mr-3 sm:mr-4 mb-3 sm:mb-0 flex-shrink-0">
-                    <service.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white break-words flex-1 min-w-0">{service.title}</h3>
-                </div>
-                
-                <p className="text-gray-300 mb-4 sm:mb-6 leading-relaxed text-sm sm:text-base md:text-lg break-words">
-                  {service.description}
-                </p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-auto">
-                  {service.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-start space-x-1 sm:space-x-2">
-                      <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-accent-green flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-300 text-xs sm:text-sm break-words">{feature}</span>
+            {services.map((service, index) => {
+              const colors = ['orange', 'purple', 'teal', 'blue'];
+              const color = colors[index % colors.length];
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className={`dimensional-card card-${color} p-6 sm:p-8 relative overflow-hidden`}
+                >
+                  <div className="flex items-center mb-6">
+                    <div className={`icon-container icon-${color} mr-4`}>
+                      <service.icon className="w-6 h-6 text-white relative z-10" />
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+                    <h3 className="text-xl font-semibold text-white">{service.title}</h3>
+                  </div>
+                  
+                  <p className="text-gray-300 mb-6 leading-relaxed">
+                    {service.description}
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {service.features.map((feature, featureIndex) => (
+                      <motion.div 
+                        key={featureIndex} 
+                        className="flex items-center space-x-3"
+                        initial={{ opacity: 0, x: -10 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.3, delay: 0.2 + featureIndex * 0.1 }}
+                      >
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        <span className="text-gray-300 text-sm">{feature}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* Expertise Section */}
-      <section className="py-20 px-6 bg-gradient-to-br from-dark-800 to-dark-900">
-        <div className="container mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-5xl font-bold text-white mb-4 bounce-in">Области экспертизы</h2>
-            <p className="text-xl text-gray-400 max-w-3xl mx-auto fade-in-delay">
+      <section className="content-section section-dark py-20 sm:py-28 bg-[#0c1222]">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Области экспертизы</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Глубокие знания в ключевых IT-направлениях
             </p>
-          </div>
+          </motion.div>
 
-          <div className="flex flex-wrap justify-center gap-4 max-w-6xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-4 max-w-5xl mx-auto">
             {[
               { name: 'Cloud Computing', color: 'from-blue-500 to-cyan-500' },
               { name: 'DevOps & CI/CD', color: 'from-green-500 to-emerald-500' },
@@ -297,162 +415,231 @@ const Consulting = () => {
               { name: 'ISO 27001', color: 'from-blue-600 to-purple-600' },
               { name: 'GDPR', color: 'from-indigo-600 to-purple-600' }
             ].map((tech, index) => (
-              <div
+              <motion.div
                 key={index}
-                className={`group cursor-pointer ${
-                  visibleElements.includes(index + 8) ? 'stagger-animation' : 'opacity-0'
-                }`}
-                style={{ animationDelay: `${(index + 8) * 0.03}s` }}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.05 * index }}
+                whileHover={{ scale: 1.05 }}
+                className="group"
               >
                 <div className={`
                   px-5 py-2.5 rounded-xl font-medium text-white
                   bg-gradient-to-r ${tech.color}
-                  hover:scale-105 hover:shadow-xl hover:shadow-primary-500/20
-                  transition-all duration-300 ease-out
+                  transition-all duration-300
                   relative overflow-hidden
                 `}>
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
                   <span className="relative z-10">{tech.name}</span>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Industries Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-5xl font-bold text-white mb-4 bounce-in">Отрасли</h2>
-            <p className="text-xl text-gray-400 max-w-3xl mx-auto fade-in-delay">
+      <section className="content-section section-gradient py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Отрасли</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Опыт работы в различных сферах бизнеса
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {industries.map((industry, index) => (
-              <div
-                key={index}
-                className={`ios-card p-6 rounded-2xl text-center magnetic-hover ${
-                  visibleElements.includes(index + 14) ? 'stagger-animation' : 'opacity-0'
-                }`}
-                style={{ animationDelay: `${(index + 14) * 0.1}s` }}
-              >
-                <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <industry.icon className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-white mb-3">{industry.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{industry.description}</p>
-              </div>
-            ))}
+            {industries.map((industry, index) => {
+              const colors = ['orange', 'purple', 'teal', 'blue', 'purple', 'teal'];
+              const color = colors[index % colors.length];
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className={`dimensional-card card-${color} p-6 text-center relative overflow-hidden`}
+                >
+                  <div className="flex justify-center mb-4">
+                    <div className={`icon-container icon-${color}`}>
+                      <industry.icon className="w-5 h-5 text-white relative z-10" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3">{industry.title}</h3>
+                  <p className="text-gray-400 text-sm">{industry.description}</p>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* Benefits Section */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 bg-gradient-to-br from-dark-800 to-dark-900">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-2 gap-8 sm:gap-12 items-center">
-            <div className="slide-up">
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6">Преимущества работы с нами</h2>
-              <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 leading-relaxed">
+      <section className="content-section section-dark py-20 sm:py-28 bg-[#0c1222]">
+        <div className="container mx-auto px-4 sm:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2 className="heading-lg text-white mb-6">Преимущества работы с нами</h2>
+              <p className="text-gray-300 mb-6 leading-relaxed">
                 Получите максимальную отдачу от IT-инвестиций с помощью
                 экспертных консультаций от команды KolTech.
               </p>
               
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-4">
                 {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-start space-x-2 sm:space-x-3">
-                    <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-accent-green flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-300 text-sm sm:text-base md:text-lg">{benefit}</span>
-                  </div>
+                  <motion.div 
+                    key={index} 
+                    className="flex items-center space-x-3"
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.3, delay: 0.2 + index * 0.1 }}
+                  >
+                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <span className="text-gray-300">{benefit}</span>
+                  </motion.div>
                 ))}
               </div>
-            </div>
+            </motion.div>
             
-            <div className="relative slide-up h-full flex flex-col" style={{ animationDelay: '0.2s' }}>
-              <div className="ios-card p-6 sm:p-8 rounded-3xl h-full flex flex-col">
-                <div className="text-center mb-4 sm:mb-6">
-                  <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto bg-gradient-to-br from-primary-500 to-accent-purple rounded-3xl flex items-center justify-center mb-3 sm:mb-4">
-                    <Award className="w-8 h-8 sm:w-12 sm:h-12 text-white" />
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <div className="dimensional-card card-orange p-3 sm:p-5 flex items-center justify-center">
+                <div className="text-center">
+                  <motion.div
+                    animate={{ 
+                      y: [0, -10, 0],
+                      rotate: [0, 5, 0]
+                    }}
+                    transition={{ 
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="mb-6"
+                  >
+                    <Award className="w-20 h-20 sm:w-24 sm:h-24 text-orange-500 mx-auto" />
+                  </motion.div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Сертифицированные эксперты</h3>
+                  <p className="text-gray-400 text-sm">Команда с международными сертификациями</p>
+                  
+                  <div className="grid grid-cols-2 gap-3 mt-6">
+                    {['AWS', 'Azure', 'Google Cloud', 'Kubernetes'].map((cert, index) => (
+                      <div key={index} className="bg-dark-900/50 p-2 rounded-lg border border-white/10">
+                        <p className="text-white text-sm font-medium">{cert}</p>
+                        <p className="text-orange-400 text-xs">Certified</p>
+                      </div>
+                    ))}
                   </div>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-2">Сертифицированные эксперты</h3>
-                  <p className="text-gray-400 text-sm sm:text-base">Команда с международными сертификациями</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-auto">
-                  {['AWS', 'Azure', 'Google Cloud', 'Kubernetes'].map((cert, index) => (
-                    <div key={index} className="glass-effect p-2 sm:p-3 rounded-xl text-center">
-                      <p className="text-white text-xs sm:text-sm font-medium">{cert}</p>
-                      <p className="text-primary-400 text-xs">Certified</p>
-                    </div>
-                  ))}
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Process Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-5xl font-bold text-white mb-4 bounce-in">Процесс консалтинга</h2>
-            <p className="text-xl text-gray-400 max-w-3xl mx-auto fade-in-delay">
+      <section className="content-section section-gradient py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Процесс консалтинга</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Структурированный подход к решению ваших IT-задач
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { step: '01', title: 'Диагностика', description: 'Анализ текущего состояния IT-систем', icon: Target },
-              { step: '02', title: 'Стратегия', description: 'Разработка плана развития', icon: Lightbulb },
-              { step: '03', title: 'Roadmap', description: 'Создание дорожной карты внедрения', icon: TrendingUp },
-              { step: '04', title: 'Поддержка', description: 'Сопровождение реализации', icon: Users }
+              { step: '01', title: 'Диагностика', description: 'Анализ текущего состояния IT-систем', icon: Target, color: 'orange' },
+              { step: '02', title: 'Стратегия', description: 'Разработка плана развития', icon: Lightbulb, color: 'purple' },
+              { step: '03', title: 'Roadmap', description: 'Создание дорожной карты внедрения', icon: TrendingUp, color: 'teal' },
+              { step: '04', title: 'Поддержка', description: 'Сопровождение реализации', icon: Users, color: 'blue' }
             ].map((process, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="text-center slide-up magnetic-hover h-full flex flex-col"
-                style={{ animationDelay: `${index * 0.15}s` }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className={`dimensional-card card-${process.color} p-6 text-center relative overflow-hidden`}
               >
-                <div className="ios-card p-6 sm:p-8 rounded-3xl h-full flex flex-col">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                    <process.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                <div className="flex justify-center mb-4">
+                  <div className={`icon-container icon-${process.color}`}>
+                    <process.icon className="w-5 h-5 text-white relative z-10" />
                   </div>
-                  <div className="text-primary-400 font-bold text-base sm:text-lg mb-2">{process.step}</div>
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-2 sm:mb-4">{process.title}</h3>
-                  <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mt-auto">{process.description}</p>
                 </div>
-              </div>
+                <div className="text-orange-500 font-bold text-lg mb-2">{process.step}</div>
+                <h3 className="text-xl font-semibold text-white mb-3">{process.title}</h3>
+                <p className="text-gray-400 text-sm">{process.description}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto">
-          <div className="ios-card p-12 rounded-3xl text-center slide-up relative overflow-hidden">
-            <div className="absolute inset-0 hero-gradient opacity-10" />
-            <div className="relative">
-              <h2 className="text-4xl font-bold text-white mb-4">
-                Нужна экспертная консультация?
-              </h2>
-              <p className="text-gray-300 mb-8 max-w-2xl mx-auto text-lg">
-                Получите профессиональную оценку ваших IT-систем и рекомендации 
-                по оптимизации от ведущих экспертов индустрии
-              </p>
-              <Link
-                to="/contacts"
-                className="ios-button inline-flex items-center"
-              >
-                Заказать консультацию
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
+      <section className="content-section py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="dimensional-card card-orange p-8 sm:p-12 text-center sm:text-left relative overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="sm:flex items-center justify-between">
+              <div className="mb-8 sm:mb-0 sm:mr-8">
+                <h2 className="heading-lg text-white mb-4">Готовы начать консалтинговый проект?</h2>
+                <p className="subheading max-w-xl mb-0">
+                  Обсудим ваши задачи и создадим эффективную стратегию
+                  для достижения ваших бизнес-целей
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  to="/contacts"
+                  className="modern-button button-orange inline-flex items-center justify-center text-base px-6 py-3"
+                >
+                  <span>Получить консультацию</span>
+                  <ChevronRight className="ml-2 w-5 h-5" />
+                </Link>
+                
+                <Link
+                  to="/portfolio"
+                  className="modern-ghost-button inline-flex items-center justify-center text-base px-6 py-3"
+                >
+                  <span>Наши кейсы</span>
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>

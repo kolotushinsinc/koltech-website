@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Code, Smartphone, Brain, Star, ArrowRight } from 'lucide-react';
+import { ExternalLink, Code, Smartphone, Brain, Star, ArrowRight, ChevronRight } from 'lucide-react';
 import { projectService } from '../services/api';
 import type { Project } from '../types';
 import { Helmet } from 'react-helmet-async';
+import { motion } from 'framer-motion';
 
 const SkeletonCard = () => (
   <div className="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden">
@@ -118,42 +119,194 @@ const Portfolio = () => {
         <link rel="canonical" href="https://koltech.dev/portfolio" />
       </Helmet>
       {/* Hero Section */}
-      <section className="pt-20 sm:pt-24 pb-8 sm:pb-12 px-4 sm:px-6">
-        <div className="container mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-4 sm:mb-6 bounce-in">
-            Наше
-            <span className="gradient-text block mt-1 sm:mt-2">Портфолио</span>
-          </h1>
-          <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 max-w-3xl mx-auto fade-in-delay leading-relaxed">
-            Изучите наши лучшие проекты, которые демонстрируют инновационные решения
-            в веб-разработке, мобильных приложениях и AI-технологиях
-          </p>
+      <section className="hero-with-video relative min-h-[50vh] flex items-center overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 z-0">
+          {/* Animated circles */}
+          <motion.div
+            className="absolute w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-3xl"
+            style={{ top: '-10%', right: '-10%' }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3],
+              rotate: [0, 90, 0]
+            }}
+            transition={{ 
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-3xl"
+            style={{ bottom: '-5%', left: '-5%' }}
+            animate={{ 
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.4, 0.2],
+              rotate: [0, -60, 0]
+            }}
+            transition={{ 
+              duration: 18,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[300px] h-[300px] rounded-full bg-teal-500/5 blur-3xl"
+            style={{ top: '30%', left: '20%' }}
+            animate={{ 
+              scale: [1, 1.4, 1],
+              opacity: [0.2, 0.3, 0.2],
+              y: [0, -30, 0]
+            }}
+            transition={{ 
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        </div>
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-dark-900/80 tech-pattern z-0"></div>
+        
+        <div className="container mx-auto px-4 sm:px-8 z-10 py-20 sm:py-28">
+          <motion.div 
+            className="mx-auto text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1 }}
+          >
+            <motion.h1 
+              className="heading-xl text-white mb-6 relative"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <motion.span
+                className="absolute -left-10 -top-10 text-blue-500/10 text-9xl font-bold z-0 hidden sm:block"
+                animate={{ 
+                  opacity: [0.3, 0.5, 0.3],
+                  rotate: [-5, 0, -5]
+                }}
+                transition={{ 
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                P
+              </motion.span>
+              Наше
+              <span className="block text-blue-500 relative">
+                Портфолио
+                <motion.div
+                  className="absolute -bottom-2 left-0 h-1 bg-blue-500/50 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 1.5, delay: 1 }}
+                />
+              </span>
+            </motion.h1>
+        
+            <motion.p 
+              className="subheading text-gray-300 mb-10 max-w-3xl mx-auto relative z-10"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Изучите наши лучшие проекты, которые демонстрируют инновационные решения
+              в веб-разработке, мобильных приложениях и AI-технологиях
+            </motion.p>
+            
+            {/* Floating icons */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <motion.div 
+                className="absolute text-blue-500/10"
+                style={{ top: '20%', left: '10%' }}
+                animate={{ 
+                  y: [0, -20, 0],
+                  rotate: [0, 10, 0]
+                }}
+                transition={{ 
+                  duration: 10,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                <Code className="w-20 h-20" />
+              </motion.div>
+              
+              <motion.div 
+                className="absolute text-purple-500/10"
+                style={{ bottom: '15%', right: '15%' }}
+                animate={{ 
+                  y: [0, 20, 0],
+                  rotate: [0, -15, 0]
+                }}
+                transition={{ 
+                  duration: 12,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                <Smartphone className="w-16 h-16" />
+              </motion.div>
+              
+              <motion.div 
+                className="absolute text-teal-500/10"
+                style={{ top: '40%', right: '25%' }}
+                animate={{ 
+                  y: [0, 15, 0],
+                  x: [0, 10, 0],
+                  rotate: [0, 5, 0]
+                }}
+                transition={{ 
+                  duration: 14,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                <Brain className="w-24 h-24" />
+              </motion.div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Categories Filter */}
-      <section className="px-4 sm:px-6 mb-8 sm:mb-12">
+      <section className="px-4 sm:px-8 mb-12 sm:mb-16 bg-[#0c1222] py-8">
         <div className="container mx-auto">
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 slide-up">
-            {['Все проекты', 'Веб-разработка', 'Мобильная разработка', 'AI-решения'].map((category) => (
-              <button
+          <motion.div 
+            className="flex flex-wrap justify-center gap-3 sm:gap-4"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            {['Все проекты', 'Веб-разработка', 'Мобильная разработка', 'AI-решения'].map((category, index) => (
+              <motion.button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium text-sm sm:text-base transition-all duration-300 hover:scale-105 ${
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className={`px-5 sm:px-6 py-3 sm:py-3 rounded-xl font-medium text-sm sm:text-base transition-all duration-300 hover:scale-105 ${
                   selectedCategory === category
-                    ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white pulse-glow'
-                    : 'bg-dark-800 border border-dark-700 text-gray-300 hover:text-white hover:border-primary-500'
+                    ? 'modern-button'
+                    : 'modern-ghost-button'
                 }`}
               >
                 {category}
-              </button>
+              </motion.button>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Portfolio Grid */}
-      <section className="px-4 sm:px-6 pb-16 sm:pb-20">
+      <section className="px-4 sm:px-8 pb-20 sm:pb-28 bg-[#0c1222]">
         <div className="container mx-auto">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {isLoading ? (
@@ -179,57 +332,68 @@ const Portfolio = () => {
               </div>
             ) : (
               filteredProjects.map((project, index) => (
-              <div
+              <motion.div
                 key={project._id}
-                className={`bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden card-hover group transition-all duration-500 ${
-                  visibleProjects.includes(index) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                }`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={visibleProjects.includes(index) ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-gradient-to-br from-[#0f1e3c] to-[#162a54] rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 group"
+                style={{
+                  boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
               >
                 {/* Project Image */}
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-56 overflow-hidden">
                   <img
-                    src={`https://api.koltech.dev${project.mainImage}`}
+                    src={`http://localhost:5006${project.mainImage}`}
                     alt={project.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-dark-900/80 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0f1e3c]/90 to-transparent" />
                   
                   {/* Category Badge */}
-                  <div className={`absolute top-4 left-4 bg-gradient-to-r ${getCategoryColor(project.category)} px-3 py-1 rounded-full flex items-center space-x-2`}>
+                  <div className={`absolute top-4 left-4 bg-gradient-to-r ${getCategoryColor(project.category)} px-3 py-1 rounded-full flex items-center space-x-2 shadow-lg`}>
                     {getCategoryIcon(project.category)}
                     <span className="text-white text-xs font-medium">{project.category}</span>
                   </div>
 
                   {/* Rating */}
-                  <div className="absolute top-4 right-4 bg-dark-900/80 px-2 py-1 rounded-full flex items-center space-x-1">
+                  <div className="absolute top-4 right-4 bg-[#0f1e3c]/80 backdrop-blur-sm px-3 py-1 rounded-full flex items-center space-x-1 shadow-lg border border-white/10">
                     <Star className="w-3 h-3 text-yellow-400 fill-current" />
                     <span className="text-white text-xs">{project.rating}</span>
                   </div>
 
                   {/* Overlay */}
-                  <div className="absolute inset-0 bg-dark-900/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-3">
+                  <div className="absolute inset-0 bg-[#0f1e3c]/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-4">
                     <Link
                       to={`/project/${project._id}`}
-                      className="bg-white text-dark-900 px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 hover:bg-gray-100 hover:scale-105 transition-all duration-300"
+                      className="modern-button px-4 py-2 text-sm flex items-center space-x-2"
                     >
                       <span>Подробнее</span>
+                      <ArrowRight className="w-4 h-4 ml-1" />
                     </Link>
                     <a
                       href={project.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-dark-800 text-white px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 hover:bg-dark-700 hover:scale-105 transition-all duration-300"
+                      className="modern-ghost-button px-4 py-2 text-sm flex items-center"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-4 h-4 mr-2" />
                       <span>Сайт</span>
                     </a>
                   </div>
                 </div>
 
                 {/* Project Info */}
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-white mb-3">{project.title}</h3>
-                  <p className="text-gray-400 mb-4 leading-relaxed">{project.shortDescription}</p>
+                <div className="p-6 relative">
+                  {/* Background icon */}
+                  <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none">
+                    {getCategoryIcon(project.category)}
+                  </div>
+                  
+                  <h3 className="text-2xl font-semibold text-white mb-3">{project.title}</h3>
+                  <p className="text-gray-400 mb-5 leading-relaxed text-sm">{project.shortDescription}</p>
                   
                   {/* Technologies */}
                   <div className="flex flex-wrap gap-2">
@@ -273,7 +437,7 @@ const Portfolio = () => {
                       return techArray.map((tech: string, index: number) => (
                         <span
                           key={index}
-                          className="bg-gradient-to-r from-primary-500/10 to-accent-purple/10 border border-primary-500/30 text-gray-300 px-2 py-1 rounded text-xs font-medium hover:from-primary-500 hover:to-accent-purple hover:text-white transition-all duration-300 cursor-pointer shadow-sm hover:shadow-primary-500/20"
+                          className="bg-[#3b82f6]/10 border border-[#3b82f6]/30 text-gray-300 px-2 py-1 rounded text-xs font-medium hover:bg-[#3b82f6]/20 hover:text-white transition-all duration-300 cursor-pointer shadow-sm"
                         >
                           {tech}
                         </span>
@@ -281,7 +445,7 @@ const Portfolio = () => {
                     })()}
                   </div>
                 </div>
-              </div>
+              </motion.div>
               ))
             )}
           </div>
@@ -289,26 +453,32 @@ const Portfolio = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto">
-          <div className="ios-card p-12 rounded-3xl text-center slide-up relative overflow-hidden">
-            <div className="absolute inset-0 hero-gradient opacity-10" />
-            <div className="relative">
-              <h2 className="text-4xl font-bold text-white mb-4">
-                Готовы создать что-то удивительное?
-              </h2>
-              <p className="text-gray-300 mb-8 max-w-2xl mx-auto text-lg">
-                Наша команда экспертов поможет воплотить ваши идеи в инновационные цифровые решения
-              </p>
+      <section className="content-section">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="dimensional-card card-blue p-8 sm:p-12 text-center sm:text-left relative overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="sm:flex items-center justify-between">
+              <div className="mb-8 sm:mb-0 sm:mr-8">
+                <h2 className="heading-lg text-white mb-4">Готовы создать что-то удивительное?</h2>
+                <p className="subheading max-w-xl mb-0">
+                  Наша команда экспертов поможет воплотить ваши идеи в инновационные цифровые решения
+                </p>
+              </div>
+              
               <Link
                 to="/contacts"
-                className="ios-button inline-flex items-center"
+                className="modern-button inline-flex items-center justify-center text-base px-6 py-3"
               >
-                Начать проект
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <span>Начать проект</span>
+                <ChevronRight className="ml-2 w-5 h-5" />
               </Link>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>

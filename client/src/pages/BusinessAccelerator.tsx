@@ -11,9 +11,11 @@ import {
   Star,
   Globe,
   Shield,
-  Lightbulb
+  Lightbulb,
+  ChevronRight
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { motion } from 'framer-motion';
 
 const BusinessAccelerator = () => {
   const features = [
@@ -102,194 +104,369 @@ const BusinessAccelerator = () => {
         <link rel="canonical" href="https://koltech.dev/business-accelerator" />
       </Helmet>
       {/* Hero Section */}
-      <section className="pt-20 sm:pt-24 pb-8 sm:pb-12 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-center">
-            <div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-4 sm:mb-6 leading-tight bounce-in">
+      <section className="hero-with-video relative min-h-[70vh] flex items-center overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 z-0">
+          {/* Animated circles */}
+          <motion.div
+            className="absolute w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-3xl"
+            style={{ top: '-10%', right: '-10%' }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3],
+              rotate: [0, 90, 0]
+            }}
+            transition={{ 
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-3xl"
+            style={{ bottom: '-5%', left: '-5%' }}
+            animate={{ 
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.4, 0.2],
+              rotate: [0, -60, 0]
+            }}
+            transition={{ 
+              duration: 18,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[300px] h-[300px] rounded-full bg-teal-500/5 blur-3xl"
+            style={{ top: '30%', left: '20%' }}
+            animate={{ 
+              scale: [1, 1.4, 1],
+              opacity: [0.2, 0.3, 0.2],
+              y: [0, -30, 0]
+            }}
+            transition={{ 
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        </div>
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-dark-900/80 tech-pattern z-0"></div>
+        
+        <div className="container mx-auto px-4 sm:px-8 z-10 py-20 sm:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+            >
+              <motion.h1 
+                className="heading-xl text-white mb-6 relative"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                <motion.span
+                  className="absolute -left-10 -top-10 text-blue-500/10 text-9xl font-bold z-0 hidden sm:block"
+                  animate={{ 
+                    opacity: [0.3, 0.5, 0.3],
+                    rotate: [-5, 0, -5]
+                  }}
+                  transition={{ 
+                    duration: 8,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                >
+                  B
+                </motion.span>
                 Бизнес-
-                <span className="gradient-text block mt-1 sm:mt-2">Акселератор</span>
-              </h1>
-              <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 leading-relaxed fade-in-delay">
+                <span className="block text-blue-500 relative">
+                  Акселератор
+                  <motion.div
+                    className="absolute -bottom-2 left-0 h-1 bg-blue-500/50 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 1.5, delay: 1 }}
+                  />
+                </span>
+              </motion.h1>
+              
+              <motion.p 
+                className="subheading text-gray-300 mb-8"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+              >
                 Превращаем революционные идеи в технологические прорывы. KolTech Business Accelerator -
                 это не просто акселератор, это экосистема для создания будущего.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 slide-up">
+              </motion.p>
+              
+              <motion.div 
+                className="flex flex-col sm:flex-row gap-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.6 }}
+              >
                 <Link
                   to="/contacts"
-                  className="bg-gradient-to-r from-primary-500 to-accent-purple text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center justify-center pulse-glow text-sm sm:text-base"
+                  className="modern-button inline-flex items-center justify-center"
                 >
-                  Начать проект
-                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Начать проект</span>
+                  <ChevronRight className="ml-2 w-4 h-4" />
                 </Link>
+                
                 <Link
                   to="/portfolio"
-                  className="border-2 border-primary-500 text-primary-400 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold hover:bg-primary-500 hover:text-white hover:scale-105 transition-all duration-300 text-sm sm:text-base"
+                  className="modern-ghost-button inline-flex items-center justify-center"
                 >
-                  Наши проекты
+                  <span>Наши проекты</span>
+                  <ArrowRight className="ml-2 w-4 h-4" />
                 </Link>
-              </div>
-            </div>
-            <div className="relative slide-up" style={{ animationDelay: '0.3s' }}>
-              <div className="w-full h-64 sm:h-80 md:h-96 bg-gradient-to-br from-primary-500/20 to-accent-purple/20 rounded-3xl flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 tech-pattern opacity-30" />
-                <div className="text-center px-4">
-                  <div className="relative">
-                    <Lightbulb className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 text-primary-400 mx-auto mb-4 sm:mb-6" />
-                  </div>
-                  <p className="text-white font-semibold text-sm sm:text-base md:text-lg">Инновации без границ</p>
+              </motion.div>
+            </motion.div>
+            
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
+              <div className="dimensional-card card-blue p-8 sm:p-12 flex items-center justify-center">
+                <div className="text-center">
+                  <motion.div
+                    animate={{ 
+                      y: [0, -10, 0],
+                      rotate: [0, 5, 0]
+                    }}
+                    transition={{ 
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="mb-6"
+                  >
+                    <Lightbulb className="w-20 h-20 sm:w-24 sm:h-24 text-blue-500 mx-auto" />
+                  </motion.div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Инновации без границ</h3>
+                  <p className="text-gray-400 text-sm">Создаем технологии будущего уже сегодня</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Achievements */}
-      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-dark-800/50">
+      <section className="py-16 sm:py-20 px-4 sm:px-8 bg-[#0c1222]">
         <div className="container mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {achievements.map((achievement, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="text-center slide-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
+                className="text-center"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <div className="flex justify-center mb-3 sm:mb-4 group">
-                  <div className="p-3 sm:p-4 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl group-hover:animate-pulse">
-                    <achievement.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                <div className="flex justify-center mb-4">
+                  <div className={`icon-container icon-${index === 0 ? 'blue' : index === 1 ? 'purple' : index === 2 ? 'teal' : 'orange'}`}>
+                    <achievement.icon className="w-6 h-6 text-white relative z-10" />
                   </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">{achievement.number}</div>
-                <div className="text-gray-400 text-sm sm:text-base">{achievement.label}</div>
-              </div>
+                <div className="text-3xl font-bold text-white mb-2">{achievement.number}</div>
+                <div className="text-gray-400 text-sm">{achievement.label}</div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-10 sm:mb-12 md:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 sm:mb-4 bounce-in">Наши преимущества</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto fade-in-delay text-sm sm:text-base">
+      <section className="content-section section-gradient">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Наши преимущества</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Уникальный подход к развитию технологических проектов
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="bg-dark-800 p-6 sm:p-8 rounded-2xl border border-dark-700 card-hover group slide-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className={`dimensional-card card-${index % 3 === 0 ? 'blue' : index % 3 === 1 ? 'purple' : 'teal'} p-6 sm:p-8 relative overflow-hidden`}
               >
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-primary-500 to-accent-purple rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <feature.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                {/* Background icon */}
+                <div className="absolute right-4 bottom-4 opacity-5 pointer-events-none">
+                  <feature.icon className="w-32 h-32" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">{feature.title}</h3>
-                <p className="text-gray-400 leading-relaxed text-sm sm:text-base">{feature.description}</p>
-              </div>
+                
+                <div className={`icon-container icon-${index % 3 === 0 ? 'blue' : index % 3 === 1 ? 'purple' : 'teal'} mb-6`}>
+                  <feature.icon className="w-6 h-6 text-white relative z-10" />
+                </div>
+                
+                <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Services */}
-      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-gradient-to-br from-dark-800 to-dark-900">
-        <div className="container mx-auto">
-          <div className="text-center mb-10 sm:mb-12 md:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 sm:mb-4 bounce-in">Наши услуги</h2>
-            <p className="text-gray-400 max-w-3xl mx-auto fade-in-delay text-sm sm:text-base">
+      <section className="content-section section-dark">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Наши услуги</h2>
+            <p className="subheading max-w-3xl mx-auto">
               Комплексный подход к развитию вашего бизнеса
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
-            {services.map((service, index) => (
-              <div
-                key={index}
-                className="bg-dark-800 border border-dark-700 rounded-2xl p-6 sm:p-8 card-hover relative overflow-hidden slide-up flex flex-col"
-                style={{ animationDelay: `${index * 0.2}s` }}
-              >
-                <div className={`absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br ${service.color} rounded-full -translate-y-12 sm:-translate-y-16 translate-x-12 sm:translate-x-16 opacity-20`} />
-                
-                <div className="relative flex-grow">
-                  <h3 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">{service.title}</h3>
-                  
-                  <p className="text-gray-400 mb-6 sm:mb-8 leading-relaxed text-sm sm:text-base">
-                    {service.description}
-                  </p>
-                </div>
-
-                <Link
-                  to="/contacts"
-                  className={`w-full mt-auto bg-gradient-to-r ${service.color} text-white py-3 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 block text-center text-sm sm:text-base`}
+          <div className="grid lg:grid-cols-3 gap-8">
+            {services.map((service, index) => {
+              const colors = ['blue', 'purple', 'teal'];
+              const color = colors[index % colors.length];
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.2 }}
+                  className={`dimensional-card card-${color} p-8 relative overflow-hidden flex flex-col h-full`}
                 >
-                  Узнать больше
-                </Link>
-              </div>
-            ))}
+                  {/* Background icon */}
+                  <div className="absolute right-4 bottom-4 opacity-5 pointer-events-none">
+                    {index === 0 ? <Target className="w-32 h-32" /> : 
+                     index === 1 ? <Zap className="w-32 h-32" /> : 
+                     <TrendingUp className="w-32 h-32" />}
+                  </div>
+                  
+                  <div className="relative flex-grow">
+                    <h3 className="text-2xl font-semibold text-white mb-4">{service.title}</h3>
+                    <p className="text-gray-400 mb-8 leading-relaxed">
+                      {service.description}
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/contacts"
+                    className={`modern-button button-${color} inline-flex items-center justify-center mt-auto`}
+                  >
+                    <span>Узнать больше</span>
+                    <ArrowRight className="ml-2 w-4 h-4" />
+                  </Link>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* Process Steps */}
-      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-10 sm:mb-12 md:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 sm:mb-4 bounce-in">Процесс работы</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto fade-in-delay text-sm sm:text-base">
+      <section className="content-section section-gradient">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Процесс работы</h2>
+            <p className="subheading max-w-2xl mx-auto">
               От идеи до реализации за четыре простых шага
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { step: '01', title: 'Консультация', description: 'Анализ вашей идеи и определение стратегии' },
               { step: '02', title: 'Планирование', description: 'Создание детального плана реализации' },
               { step: '03', title: 'Разработка', description: 'Техническая реализация с постоянной обратной связью' },
               { step: '04', title: 'Запуск', description: 'Вывод продукта на рынок и дальнейшая поддержка' }
-            ].map((process, index) => (
-              <div
-                key={index}
-                className="text-center slide-up"
-                style={{ animationDelay: `${index * 0.15}s` }}
-              >
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 hover:scale-110 transition-transform duration-300 cursor-pointer">
-                  <span className="text-white font-bold text-sm sm:text-lg">{process.step}</span>
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">{process.title}</h3>
-                <p className="text-gray-400 leading-relaxed text-sm sm:text-base">{process.description}</p>
-              </div>
-            ))}
+            ].map((process, index) => {
+              const colors = ['blue', 'purple', 'teal', 'orange'];
+              const color = colors[index % colors.length];
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.15 }}
+                  className="text-center"
+                >
+                  <motion.div 
+                    className={`w-16 h-16 bg-gradient-to-br from-[#0f1e3c] to-[#162a54] rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/10`}
+                    whileHover={{ scale: 1.05 }}
+                    style={{
+                      boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.3)'
+                    }}
+                  >
+                    <span className="text-white font-bold text-lg">{process.step}</span>
+                  </motion.div>
+                  <h3 className="text-xl font-semibold text-white mb-3">{process.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{process.description}</p>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="bg-gradient-to-br from-dark-800 to-dark-700 p-6 sm:p-8 md:p-12 rounded-3xl border border-dark-600 text-center slide-up relative overflow-hidden">
-            <div className="absolute inset-0 tech-pattern opacity-10" />
-            <div className="relative">
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-3 sm:mb-4">
-                Готовы создать будущее?
-              </h2>
-              <p className="text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto text-sm sm:text-base md:text-lg">
-                Присоединяйтесь к KolTech Business Accelerator и превратите вашу идею
-                в технологический прорыв нового поколения
-              </p>
+      {/* CTA Section */}
+      <section className="content-section">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="dimensional-card card-blue p-8 sm:p-12 text-center sm:text-left relative overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="sm:flex items-center justify-between">
+              <div className="mb-8 sm:mb-0 sm:mr-8">
+                <h2 className="heading-lg text-white mb-4">Готовы создать будущее?</h2>
+                <p className="subheading max-w-xl mb-0">
+                  Присоединяйтесь к KolTech Business Accelerator и превратите вашу идею
+                  в технологический прорыв нового поколения
+                </p>
+              </div>
+              
               <Link
                 to="/contacts"
-                className="bg-gradient-to-r from-primary-500 to-accent-purple text-white px-6 sm:px-8 md:px-12 py-3 sm:py-4 rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all duration-300 inline-flex items-center pulse-glow text-sm sm:text-base"
+                className="modern-button inline-flex items-center justify-center text-base px-6 py-3"
               >
-                Начать сейчас
-                <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Начать сейчас</span>
+                <ChevronRight className="ml-2 w-5 h-5" />
               </Link>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>

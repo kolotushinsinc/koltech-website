@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Send, Clock, CheckCircle, User, MessageSquare, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Phone, MapPin, Send, Clock, CheckCircle, User, MessageSquare, MessageCircle, ChevronRight, ArrowRight } from 'lucide-react';
 import { contactService } from '../services/api';
 import type { ContactFormData } from '../types';
 import { Helmet } from 'react-helmet-async';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 const Contacts = () => {
+  // Scroll to top on component mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
@@ -100,66 +106,223 @@ const Contacts = () => {
         <link rel="canonical" href="https://koltech.dev/contacts" />
       </Helmet>
       {/* Hero Section */}
-      <section className="pt-20 sm:pt-24 pb-8 sm:pb-12 px-4 sm:px-6">
-        <div className="container mx-auto text-center">
-          <div className="max-w-4xl mx-auto bounce-in">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-4 sm:mb-6 leading-tight">
+      <section className="hero-with-video relative min-h-[60vh] flex items-center overflow-hidden pt-20 sm:pt-24">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 z-0">
+          {/* Animated circles */}
+          <motion.div
+            className="absolute w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-3xl"
+            style={{ top: '-10%', right: '-10%' }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3],
+              rotate: [0, 90, 0]
+            }}
+            transition={{ 
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-3xl"
+            style={{ bottom: '-5%', left: '-5%' }}
+            animate={{ 
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.4, 0.2],
+              rotate: [0, -60, 0]
+            }}
+            transition={{ 
+              duration: 18,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[300px] h-[300px] rounded-full bg-teal-500/5 blur-3xl"
+            style={{ top: '30%', left: '20%' }}
+            animate={{ 
+              scale: [1, 1.4, 1],
+              opacity: [0.2, 0.3, 0.2],
+              y: [0, -30, 0]
+            }}
+            transition={{ 
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          
+          {/* Floating particles */}
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-blue-400 rounded-full"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+              }}
+              animate={{ 
+                opacity: [0.3, 0.7, 0.3],
+                y: [0, -10, 0]
+              }}
+              transition={{ 
+                duration: 2 + Math.random() * 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: Math.random() * 2
+              }}
+            />
+          ))}
+          
+          {/* Grid pattern overlay */}
+          <div className="absolute inset-0 bg-dark-900/80 tech-pattern z-0"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 sm:px-8 z-10 py-12 sm:py-16">
+          <div className="max-w-4xl">
+            <motion.h1 
+              className="heading-xl text-white mb-6 relative"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <motion.span
+                className="absolute -left-10 -top-10 text-blue-500/10 text-9xl font-bold z-0 hidden sm:block"
+                animate={{ 
+                  opacity: [0.3, 0.5, 0.3],
+                  rotate: [-5, 0, -5]
+                }}
+                transition={{ 
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                C
+              </motion.span>
               Свяжитесь
-              <span className="gradient-text block mt-1 sm:mt-2">с нами</span>
-            </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed fade-in-delay">
+              <span className="block text-blue-500 relative">
+                с нами
+                <motion.div
+                  className="absolute -bottom-2 left-0 h-1 bg-blue-500/50 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 1.5, delay: 1 }}
+                />
+              </span>
+            </motion.h1>
+
+            <motion.p 
+              className="subheading text-gray-300 mb-8 max-w-3xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
               Готовы обсудить ваш проект? Наша команда экспертов поможет воплотить
               ваши идеи в инновационные цифровые решения.
-            </p>
+            </motion.p>
+            
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-5 justify-start"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+            >
+              <a
+                href="#contact-form"
+                className="modern-button button-blue inline-flex items-center justify-center"
+              >
+                <span>Отправить сообщение</span>
+                <ChevronRight className="ml-2 w-4 h-4" />
+              </a>
+              
+              <Link
+                to="/portfolio"
+                className="modern-ghost-button inline-flex items-center justify-center"
+              >
+                <span>Наши проекты</span>
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Contact Info Cards */}
-      <section className="py-8 sm:py-12 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10 sm:mb-16">
+      <section className="content-section section-dark py-20 sm:py-28 bg-[#0c1222]">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Как с нами связаться</h2>
+            <p className="subheading max-w-2xl mx-auto">
+              Выберите удобный для вас способ коммуникации
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {contactInfo.map((info, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="bg-dark-800 border border-dark-700 rounded-2xl p-4 sm:p-6 card-hover group slide-up flex flex-col h-full"
-                style={{ animationDelay: `${index * 0.1}s` }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="dimensional-card card-blue p-6 text-center"
               >
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary-500 to-accent-purple rounded-xl flex items-center justify-center mb-3 sm:mb-4 group-hover:animate-pulse">
-                  <info.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                <div className="flex justify-center mb-4">
+                  <div className="icon-container icon-blue">
+                    <info.icon className="w-5 h-5 text-white relative z-10" />
+                  </div>
                 </div>
-                <h3 className="text-white font-semibold mb-1 sm:mb-2 text-sm sm:text-base">{info.title}</h3>
-                <p className="text-primary-400 font-medium mb-1 text-sm sm:text-base break-words">{info.value}</p>
-                <p className="text-gray-400 text-xs sm:text-sm mt-auto">{info.description}</p>
-              </div>
+                <h3 className="text-lg font-semibold text-white mb-2">{info.title}</h3>
+                <p className="text-blue-300 font-medium mb-2 text-sm break-words">{info.value}</p>
+                <p className="text-gray-400 text-xs">{info.description}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Contact Form */}
-      <section className="py-8 sm:py-12 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-2 gap-6 sm:gap-12 items-start">
+      <section id="contact-form" className="content-section section-gradient py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <div className="grid lg:grid-cols-2 gap-8 items-start">
             {/* Form */}
-            <div className="bg-dark-800 border border-dark-700 rounded-2xl p-6 sm:p-8 slide-up">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="dimensional-card card-blue p-6 sm:p-8 relative overflow-hidden"
+            >
               <div className="mb-6 sm:mb-8">
-                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 sm:mb-4">Расскажите о проекте</h2>
-                <p className="text-gray-400 text-sm sm:text-base">
+                <h2 className="heading-lg text-white mb-4">Расскажите о проекте</h2>
+                <p className="subheading mb-0">
                   Заполните форму, и мы свяжемся с вами в течение 24 часов
                 </p>
               </div>
 
               {isSubmitted ? (
-                <div className="text-center py-8 sm:py-12 bounce-in">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-accent-green to-primary-500 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                    <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                <motion.div 
+                  className="text-center py-8 sm:py-12"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div className="icon-container icon-green mx-auto mb-6">
+                    <CheckCircle className="w-8 h-8 text-white relative z-10" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Спасибо за обращение!</h3>
-                  <p className="text-gray-300 text-sm sm:text-base">
+                  <h3 className="heading-md text-white mb-4">Спасибо за обращение!</h3>
+                  <p className="subheading mb-0">
                     Мы получили ваше сообщение и свяжемся с вами в ближайшее время.
                   </p>
-                </div>
+                </motion.div>
               ) : (
                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                  {error && (
@@ -266,10 +429,8 @@ const Contacts = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`w-full py-3 sm:py-4 px-6 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-2 text-sm sm:text-base ${
-                      isSubmitting
-                        ? 'bg-dark-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-primary-500 to-accent-purple text-white hover:shadow-2xl hover:scale-105 pulse-glow'
+                    className={`modern-button button-blue w-full py-3 sm:py-4 px-6 flex items-center justify-center space-x-2 text-sm sm:text-base ${
+                      isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   >
                     {isSubmitting ? (
@@ -286,12 +447,18 @@ const Contacts = () => {
                   </button>
                 </form>
               )}
-            </div>
+            </motion.div>
 
             {/* Additional Info */}
-            <div className="space-y-6 sm:space-y-8 slide-up" style={{ animationDelay: '0.2s' }}>
-              <div className="bg-gradient-to-br from-primary-500/10 to-accent-purple/10 border border-primary-500/20 rounded-2xl p-6 sm:p-8">
-                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Почему выбирают KolTech?</h3>
+            <div className="space-y-6 sm:space-y-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="dimensional-card card-blue p-6 sm:p-8 relative overflow-hidden"
+              >
+                <h3 className="heading-md text-white mb-4">Почему выбирают KolTech?</h3>
                 <div className="space-y-3 sm:space-y-4">
                   {[
                     'Опыт работы с 500+ проектами',
@@ -300,16 +467,29 @@ const Contacts = () => {
                     'Поддержка 24/7',
                     'Гарантия качества'
                   ].map((item, index) => (
-                    <div key={index} className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
+                    <motion.div 
+                      key={index} 
+                      className="flex items-center space-x-3"
+                      initial={{ opacity: 0, x: -10 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.3, delay: 0.2 + index * 0.1 }}
+                    >
+                      <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                       <span className="text-gray-300 text-sm sm:text-base">{item}</span>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="bg-dark-800 border border-dark-700 rounded-2xl p-6 sm:p-8">
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Наши офисы</h3>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="dimensional-card card-purple p-6 sm:p-8 relative overflow-hidden"
+              >
+                <h3 className="heading-md text-white mb-4">Наши офисы</h3>
                 <div className="space-y-3 sm:space-y-4">
                   <div className="text-gray-300">
                     <p className="font-semibold text-white mb-1 text-sm sm:text-base">Санкт-Петербург</p>
@@ -324,17 +504,23 @@ const Contacts = () => {
                     <p className="text-xs sm:text-sm">«ПризмаТим Интернет-маркетинг». Адрес: ул. Арсеньева, 14</p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="bg-dark-800 border border-dark-700 rounded-2xl p-6 sm:p-8">
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Быстрый ответ</h3>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="dimensional-card card-teal p-6 sm:p-8 relative overflow-hidden"
+              >
+                <h3 className="heading-md text-white mb-4">Быстрый ответ</h3>
                 <p className="text-gray-300 mb-3 sm:mb-4 text-sm sm:text-base">
                   Нужна срочная консультация? Напишите нам напрямую:
                 </p>
                 <div className="space-y-2 sm:space-y-3">
                   <a
                     href="mailto:kolotushintechnologies@gmail.com"
-                    className="flex items-center space-x-3 text-primary-400 hover:text-primary-300 transition-colors text-sm sm:text-base"
+                    className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 transition-colors text-sm sm:text-base"
                   >
                     <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>kolotushintechnologies@gmail.com</span>
@@ -379,7 +565,7 @@ const Contacts = () => {
                     <span>Alekseev</span>
                   </a>
                 </div>
-              </div>
+              </motion.div>
             </div>
           </div>
         </div>

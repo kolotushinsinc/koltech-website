@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Smartphone, 
@@ -14,23 +14,16 @@ import {
   Star,
   Clock,
   Shield,
-  Globe
+  Globe,
+  ChevronRight
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { motion } from 'framer-motion';
 
 const MobileApps = () => {
-  const [visibleElements, setVisibleElements] = useState<number[]>([]);
-
+  // Scroll to top on component mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      Array.from({ length: 100 }).forEach((_, index) => {
-        setTimeout(() => {
-          setVisibleElements(prev => [...prev, index]);
-        }, index * 100);
-      });
-    }, 300);
-
-    return () => clearTimeout(timer);
+    window.scrollTo(0, 0);
   }, []);
 
   const services = [
@@ -94,142 +87,268 @@ const MobileApps = () => {
         <link rel="canonical" href="https://koltech.dev/mobile-development" />
       </Helmet>
       {/* Hero Section */}
-      <section className="pt-20 pb-12 px-4 sm:px-6 hero-gradient relative overflow-hidden">
-        <div className="absolute inset-0 tech-pattern opacity-20" />
-        <div className="container mx-auto relative">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="bounce-in">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 sm:mb-6 leading-tight">
-                Мобильные
-                <span className="text-shimmer block">приложения</span>
-              </h1>
-              <p className="text-lg sm:text-xl text-white/90 mb-6 sm:mb-8 leading-relaxed fade-in-delay">
-                Разрабатываем мобильные приложения, которые пользователи любят использовать. 
-                От стартапов до крупных корпораций - создаем решения любой сложности.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 slide-up">
-                <Link
-                  to="/contacts"
-                  className="ios-button inline-flex items-center justify-center text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-4"
-                >
-                  Обсудить проект
-                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-                </Link>
-                <Link
-                  to="/portfolio"
-                  className="glass-effect text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold hover:bg-white/10 transition-all duration-300 text-center text-sm sm:text-base"
-                >
-                  Наши приложения
-                </Link>
-              </div>
-            </div>
-            <div className="relative slide-up floating-elements" style={{ animationDelay: '0.3s' }}>
-              <div className="ios-card p-4 sm:p-6 md:p-8 rounded-3xl">
-                <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-                  {platforms.map((platform, index) => (
-                    <div
-                      key={index}
-                      className={`p-2 sm:p-4 glass-effect rounded-2xl text-center magnetic-hover ${
-                        visibleElements.includes(index) ? 'stagger-animation' : 'opacity-0'
-                      }`}
-                      style={{ animationDelay: `${index * 0.1}s` }}
-                    >
-                      <platform.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white mx-auto mb-1 sm:mb-2" />
-                      <p className="text-white text-xs sm:text-sm font-medium">{platform.name}</p>
-                      <p className="text-gray-400 text-xs">{platform.users}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-center">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 mx-auto bg-gradient-to-br from-primary-500 to-accent-purple rounded-3xl flex items-center justify-center mb-3 sm:mb-4 magnetic-hover">
-                    <Smartphone className="w-12 h-12 sm:w-16 sm:h-16 text-white" />
-                  </div>
-                  <p className="text-white font-semibold text-sm sm:text-base">Кроссплатформенная разработка</p>
-                </div>
-              </div>
-            </div>
+      <section className="hero-with-video relative min-h-[70vh] flex items-center overflow-hidden pt-20 sm:pt-24">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 z-0">
+          {/* Animated circles */}
+          <motion.div
+            className="absolute w-[500px] h-[500px] rounded-full bg-purple-500/5 blur-3xl"
+            style={{ top: '-10%', right: '-10%' }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.5, 0.3],
+              rotate: [0, 90, 0]
+            }}
+            transition={{ 
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-3xl"
+            style={{ bottom: '-5%', left: '-5%' }}
+            animate={{ 
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.4, 0.2],
+              rotate: [0, -60, 0]
+            }}
+            transition={{ 
+              duration: 18,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute w-[300px] h-[300px] rounded-full bg-teal-500/5 blur-3xl"
+            style={{ top: '30%', left: '20%' }}
+            animate={{ 
+              scale: [1, 1.4, 1],
+              opacity: [0.2, 0.3, 0.2],
+              y: [0, -30, 0]
+            }}
+            transition={{ 
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          
+          {/* Floating particles */}
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-purple-400 rounded-full"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+              }}
+              animate={{ 
+                opacity: [0.3, 0.7, 0.3],
+                y: [0, -10, 0]
+              }}
+              transition={{ 
+                duration: 2 + Math.random() * 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: Math.random() * 2
+              }}
+            />
+          ))}
+          
+          {/* Grid pattern overlay */}
+          <div className="absolute inset-0 bg-dark-900/80 tech-pattern z-0"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 sm:px-8 z-10 py-12 sm:py-16">
+          <div className="max-w-4xl">
+            <motion.h1 
+              className="heading-xl text-white mb-6 relative"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <motion.span
+                className="absolute -left-10 -top-10 text-purple-500/10 text-9xl font-bold z-0 hidden sm:block"
+                animate={{ 
+                  opacity: [0.3, 0.5, 0.3],
+                  rotate: [-5, 0, -5]
+                }}
+                transition={{ 
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                M
+              </motion.span>
+              Мобильные
+              <span className="block text-purple-500 relative">
+                приложения
+                <motion.div
+                  className="absolute -bottom-2 left-0 h-1 bg-purple-500/50 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 1.5, delay: 1 }}
+                />
+              </span>
+            </motion.h1>
+
+            <motion.p 
+              className="subheading text-gray-300 mb-8 max-w-3xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Разрабатываем мобильные приложения, которые пользователи любят использовать. 
+              От стартапов до крупных корпораций - создаем решения любой сложности.
+            </motion.p>
+            
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-5 justify-start"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+            >
+              <Link
+                to="/contacts"
+                className="modern-button button-purple inline-flex items-center justify-center"
+              >
+                <span>Обсудить проект</span>
+                <ChevronRight className="ml-2 w-4 h-4" />
+              </Link>
+              
+              <Link
+                to="/portfolio"
+                className="modern-ghost-button inline-flex items-center justify-center"
+              >
+                <span>Наши приложения</span>
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-dark-800/50">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
+      <section className="content-section section-dark py-20 sm:py-28 bg-[#0c1222]">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Наши Достижения</h2>
+            <p className="subheading max-w-2xl mx-auto">
+              Результаты, которыми мы гордимся
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <div
+              <motion.div
                 key={index}
-                className={`text-center ios-card p-4 sm:p-6 rounded-2xl magnetic-hover ${
-                  visibleElements.includes(index + 3) ? 'stagger-animation' : 'opacity-0'
-                }`}
-                style={{ animationDelay: `${(index + 3) * 0.1}s` }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="dimensional-card card-purple p-6 text-center"
               >
-                <div className="flex justify-center mb-3 sm:mb-4">
-                  <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl">
-                    <stat.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                <div className="flex justify-center mb-4">
+                  <div className="icon-container icon-purple">
+                    <stat.icon className="w-5 h-5 text-white relative z-10" />
                   </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">{stat.number}</div>
-                <div className="text-gray-400 text-sm">{stat.label}</div>
-              </div>
+                <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">{stat.number}</h3>
+                <p className="text-gray-400 text-sm">{stat.label}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Services Section */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4 bounce-in">Типы приложений</h2>
-            <p className="text-base sm:text-xl text-gray-400 max-w-3xl mx-auto fade-in-delay">
+      <section className="content-section section-gradient py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Типы приложений</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Выбираем оптимальный подход для каждого проекта
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-6 sm:gap-8">
-            {services.map((service, index) => (
-              <div
-                key={index}
-                className="ios-card p-6 sm:p-8 rounded-3xl magnetic-hover slide-up h-full flex flex-col"
-                style={{ animationDelay: `${index * 0.2}s` }}
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 sm:mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl flex items-center justify-center mr-3 sm:mr-4 mb-3 sm:mb-0 flex-shrink-0">
-                    <service.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white break-words flex-1 min-w-0">{service.title}</h3>
-                </div>
-                
-                <p className="text-gray-300 mb-4 sm:mb-6 leading-relaxed text-sm sm:text-base md:text-lg break-words">
-                  {service.description}
-                </p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-auto">
-                  {service.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-start space-x-1 sm:space-x-2">
-                      <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-accent-green flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-300 text-xs sm:text-sm break-words">{feature}</span>
+          <div className="grid md:grid-cols-2 gap-8">
+            {services.map((service, index) => {
+              const colors = ['purple', 'blue', 'teal', 'orange'];
+              const color = colors[index % colors.length];
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className={`dimensional-card card-${color} p-6 sm:p-8 relative overflow-hidden`}
+                >
+                  <div className="flex items-center mb-6">
+                    <div className={`icon-container icon-${color} mr-4`}>
+                      <service.icon className="w-6 h-6 text-white relative z-10" />
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+                    <h3 className="text-xl font-semibold text-white">{service.title}</h3>
+                  </div>
+                  
+                  <p className="text-gray-300 mb-6 leading-relaxed">
+                    {service.description}
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {service.features.map((feature, featureIndex) => (
+                      <motion.div 
+                        key={featureIndex} 
+                        className="flex items-center space-x-3"
+                        initial={{ opacity: 0, x: -10 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.3, delay: 0.2 + featureIndex * 0.1 }}
+                      >
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        <span className="text-gray-300 text-sm">{feature}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 bg-gradient-to-br from-dark-800 to-dark-900">
-        <div className="container mx-auto">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4 bounce-in">Технологии и возможности</h2>
-            <p className="text-base sm:text-xl text-gray-400 max-w-3xl mx-auto fade-in-delay">
+      <section className="content-section section-dark py-20 sm:py-28 bg-[#0c1222]">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Технологии и возможности</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Современный стек технологий для мобильной разработки
             </p>
-          </div>
+          </motion.div>
 
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 max-w-6xl mx-auto mb-12 sm:mb-16">
+          <div className="flex flex-wrap justify-center gap-4 max-w-5xl mx-auto mb-16">
             {[
               { name: 'React Native', color: 'from-blue-500 to-cyan-500' },
               { name: 'Flutter', color: 'from-blue-600 to-indigo-500' },
@@ -247,30 +366,31 @@ const MobileApps = () => {
               { name: 'Core Data', color: 'from-gray-600 to-blue-500' },
               { name: 'Room', color: 'from-green-600 to-teal-600' }
             ].map((tech, index) => (
-              <div
+              <motion.div
                 key={index}
-                className={`group cursor-pointer ${
-                  visibleElements.includes(index + 6) ? 'stagger-animation' : 'opacity-0'
-                }`}
-                style={{ animationDelay: `${(index + 6) * 0.03}s` }}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.05 * index }}
+                whileHover={{ scale: 1.05 }}
+                className="group"
               >
                 <div className={`
                   px-5 py-2.5 rounded-xl font-medium text-white
                   bg-gradient-to-r ${tech.color}
-                  hover:scale-105 hover:shadow-xl hover:shadow-primary-500/20
-                  transition-all duration-300 ease-out
+                  transition-all duration-300
                   relative overflow-hidden
                 `}>
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
                   <span className="relative z-10">{tech.name}</span>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
-
-          <div className="text-center">
-            <h3 className="text-2xl sm:text-3xl font-bold text-white mb-6 sm:mb-8">Возможности приложений</h3>
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-4xl mx-auto">
+          
+          <div className="text-center mb-8">
+            <h3 className="text-2xl font-semibold text-white mb-6">Возможности приложений</h3>
+            <div className="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto">
               {[
                 { name: 'Push-уведомления', color: 'from-yellow-500 to-orange-500' },
                 { name: 'Геолокация', color: 'from-green-500 to-teal-500' },
@@ -283,24 +403,25 @@ const MobileApps = () => {
                 { name: 'Синхронизация', color: 'from-cyan-500 to-blue-500' },
                 { name: 'AR/VR', color: 'from-purple-600 to-indigo-600' }
               ].map((feature, index) => (
-                <div
+                <motion.div
                   key={index}
-                  className={`group cursor-pointer ${
-                    visibleElements.includes(index + 10) ? 'stagger-animation' : 'opacity-0'
-                  }`}
-                  style={{ animationDelay: `${(index + 10) * 0.05}s` }}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.3, delay: 0.05 * index }}
+                  whileHover={{ scale: 1.05 }}
+                  className="group"
                 >
                   <div className={`
-                    px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium text-white text-xs sm:text-sm
+                    px-3 py-2 rounded-lg font-medium text-white text-sm
                     bg-gradient-to-r ${feature.color}
-                    hover:scale-105 hover:shadow-lg
-                    transition-all duration-300 ease-out
+                    transition-all duration-300
                     relative overflow-hidden
                   `}>
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
                     <span className="relative z-10">{feature.name}</span>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -308,64 +429,89 @@ const MobileApps = () => {
       </section>
 
       {/* Process Section */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4 bounce-in">Этапы разработки</h2>
-            <p className="text-base sm:text-xl text-gray-400 max-w-3xl mx-auto fade-in-delay">
+      <section className="content-section section-gradient py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="heading-lg text-white mb-4">Этапы разработки</h2>
+            <p className="subheading max-w-2xl mx-auto">
               Структурированный подход к созданию мобильных приложений
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8">
             {[
-              { step: '01', title: 'Исследование', description: 'Анализ рынка и пользователей', icon: Users },
-              { step: '02', title: 'Прототип', description: 'UX/UI дизайн и wireframes', icon: Tablet },
-              { step: '03', title: 'Разработка', description: 'Программирование функционала', icon: Code },
-              { step: '04', title: 'Тестирование', description: 'QA и оптимизация', icon: Shield },
-              { step: '05', title: 'Публикация', description: 'Релиз в App Store/Google Play', icon: Download }
+              { step: '01', title: 'Исследование', description: 'Анализ рынка и пользователей', icon: Users, color: 'purple' },
+              { step: '02', title: 'Прототип', description: 'UX/UI дизайн и wireframes', icon: Tablet, color: 'blue' },
+              { step: '03', title: 'Разработка', description: 'Программирование функционала', icon: Code, color: 'teal' },
+              { step: '04', title: 'Тестирование', description: 'QA и оптимизация', icon: Shield, color: 'orange' },
+              { step: '05', title: 'Публикация', description: 'Релиз в App Store/Google Play', icon: Download, color: 'purple' }
             ].map((process, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="text-center slide-up magnetic-hover h-full flex flex-col"
-                style={{ animationDelay: `${index * 0.15}s` }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className={`dimensional-card card-${process.color} p-6 text-center relative overflow-hidden`}
               >
-                <div className="ios-card p-4 sm:p-6 rounded-3xl mb-4 h-full flex flex-col">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-primary-500 to-accent-purple rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                    <process.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                <div className="flex justify-center mb-4">
+                  <div className={`icon-container icon-${process.color}`}>
+                    <process.icon className="w-5 h-5 text-white relative z-10" />
                   </div>
-                  <div className="text-primary-400 font-bold text-base sm:text-lg mb-2">{process.step}</div>
-                  <h3 className="text-base sm:text-lg font-bold text-white mb-2 sm:mb-3">{process.title}</h3>
-                  <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mt-auto">{process.description}</p>
                 </div>
-              </div>
+                <div className="text-purple-500 font-bold text-lg mb-2">{process.step}</div>
+                <h3 className="text-xl font-semibold text-white mb-3">{process.title}</h3>
+                <p className="text-gray-400 text-sm">{process.description}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="ios-card p-8 sm:p-12 rounded-3xl text-center slide-up relative overflow-hidden">
-            <div className="absolute inset-0 hero-gradient opacity-10" />
-            <div className="relative">
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-3 sm:mb-4">
-                Создадим ваше мобильное приложение?
-              </h2>
-              <p className="text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto text-base sm:text-lg">
-                Превратим вашу идею в успешное мобильное приложение,
-                которое пользователи будут любить и рекомендовать друзьям
-              </p>
-              <Link
-                to="/contacts"
-                className="ios-button inline-flex items-center text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-4"
-              >
-                Обсудить проект
-                <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-              </Link>
+      <section className="content-section py-20 sm:py-28">
+        <div className="container mx-auto px-4 sm:px-8">
+          <motion.div 
+            className="dimensional-card card-purple p-8 sm:p-12 text-center sm:text-left relative overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="sm:flex items-center justify-between">
+              <div className="mb-8 sm:mb-0 sm:mr-8">
+                <h2 className="heading-lg text-white mb-4">Создадим ваше мобильное приложение?</h2>
+                <p className="subheading max-w-xl mb-0">
+                  Превратим вашу идею в успешное мобильное приложение,
+                  которое пользователи будут любить и рекомендовать друзьям
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  to="/contacts"
+                  className="modern-button button-purple inline-flex items-center justify-center text-base px-6 py-3"
+                >
+                  <span>Обсудить проект</span>
+                  <ChevronRight className="ml-2 w-5 h-5" />
+                </Link>
+                
+                <Link
+                  to="/portfolio"
+                  className="modern-ghost-button inline-flex items-center justify-center text-base px-6 py-3"
+                >
+                  <span>Наши приложения</span>
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>

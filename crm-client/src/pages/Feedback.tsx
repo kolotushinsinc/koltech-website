@@ -45,7 +45,7 @@ export function Feedback() {
     const fetchMessages = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get('https://api.koltech.dev/api/contacts', {
+        const response = await axios.get('http://localhost:5006/api/contacts', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
