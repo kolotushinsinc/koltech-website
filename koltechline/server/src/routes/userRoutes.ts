@@ -9,6 +9,37 @@ import fs from 'fs';
 
 const router = Router();
 
+// Get user by ID (public profile)
+router.get('/:userId', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findById(userId).select('-password -codePhrases -email');
+    
+    if (!user) {
+      const response: ApiResponse = {
+        success: false,
+        message: 'User not found'
+      };
+      return res.status(404).json(response);
+    }
+
+    const response: ApiResponse = {
+      success: true,
+      message: 'User retrieved successfully',
+      data: { user }
+    };
+    res.json(response);
+  } catch (error: any) {
+    console.error('Get user error:', error);
+    const response: ApiResponse = {
+      success: false,
+      message: 'Failed to retrieve user'
+    };
+    res.status(500).json(response);
+  }
+}));
+
 // Get user profile
 router.get('/profile', protect, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
@@ -138,7 +169,7 @@ router.get('/check-username/:username', asyncHandler(async (req: Request, res: R
 // Change password
 router.put('/change-password', protect, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword } = req.body as any;
     
     const user = await User.findById(req.user?._id).select('+password');
     
@@ -182,7 +213,7 @@ router.put('/change-password', protect, asyncHandler(async (req: AuthRequest, re
 // Toggle 2FA
 router.put('/toggle-2fa', protect, asyncHandler(async (req: AuthRequest, res: Response) => {
   try {
-    const { enabled } = req.body;
+    const { enabled } = req.body as any;
     
     const user = await User.findById(req.user?._id);
     
@@ -244,7 +275,7 @@ const upload = multer({
 });
 
 // Upload avatar
-router.post('/avatar', protect, upload.single('avatar'), asyncHandler(async (req: AuthRequest, res: Response) => {
+router.post('/avatar', protect, upload.single('avatar'), asyncHandler(async (req: AuthRequest & { file?: Express.Multer.File }, res: Response) => {
   try {
     if (!req.file) {
       const response: ApiResponse = {

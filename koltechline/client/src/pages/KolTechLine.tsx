@@ -60,6 +60,13 @@ interface Message {
   isPinned?: boolean;
   isEdited?: boolean;
   editedAt?: Date;
+  reactions?: {
+    [emoji: string]: {
+      count: number;
+      users: string[];
+    };
+  };
+  userReaction?: string; // The emoji the current user reacted with
 }
 
 interface Wall {
@@ -106,8 +113,16 @@ const KolTechLine = () => {
     author: { username: string; avatar: string };
   } | null>(null);
   
+  // Reaction picker state
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [messageMenuOpen, setMessageMenuOpen] = useState<string | null>(null);
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [messageReplies, setMessageReplies] = useState<{ [key: string]: Message[] }>({});
+  const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
+  
   // UI state
   const [showFilters, setShowFilters] = useState(false);
+  const [showWalls, setShowWalls] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedParticipants, setSelectedParticipants] = useState('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -192,11 +207,18 @@ const KolTechLine = () => {
     loadWalls();
   }, [selectedCategory]);
 
-  // Handle wall switching - join new wall when active wall changes
+  // Load messages when wall changes (don't wait for socket)
   useEffect(() => {
-    if (activeWall && isConnected) {
+    if (activeWall) {
       console.log('🏠 Switching to wall:', activeWall);
       loadMessages(1, true); // Reset pagination when switching walls
+    }
+  }, [activeWall]);
+
+  // Join wall via socket when connected
+  useEffect(() => {
+    if (activeWall && isConnected) {
+      console.log('🔌 Socket connected, joining wall:', activeWall);
       joinWall(activeWall);
     }
   }, [activeWall, isConnected]);
@@ -250,22 +272,48 @@ const KolTechLine = () => {
         page
       });
       
-      const messagesData = response.data.messages.map((msg: any) => ({
-        id: msg._id,
-        userId: msg.author._id,
-        username: `${msg.author.firstName} ${msg.author.lastName}`,
-        avatar: msg.author.avatar ? `http://localhost:5005${msg.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.author.firstName + ' ' + msg.author.lastName)}&background=6366f1&color=fff&size=40`,
-        content: msg.content,
-        timestamp: new Date(msg.createdAt),
-        attachments: msg.attachments || [],
-        likes: msg.likesCount,
-        replies: msg.repliesCount,
-        tags: msg.tags || [],
-        isLiked: msg.likes?.includes(user?._id) || false,
-        isPinned: msg.isPinned || false,
-        isEdited: msg.isEdited || false,
-        editedAt: msg.editedAt ? new Date(msg.editedAt) : undefined
-      }));
+      const messagesData = response.data.messages.map((msg: any) => {
+        // Convert reactions array to object format for frontend
+        const reactionsObj: { [emoji: string]: { count: number; users: string[] } } = {};
+        if (msg.reactions && Array.isArray(msg.reactions)) {
+          msg.reactions.forEach((reaction: any) => {
+            reactionsObj[reaction.emoji] = {
+              count: reaction.count,
+              users: reaction.users
+            };
+          });
+        }
+        
+        // Find user's reaction
+        let userReaction: string | undefined;
+        if (user && msg.reactions) {
+          const reaction = msg.reactions.find((r: any) => 
+            r.users.some((userId: string) => userId === user._id)
+          );
+          if (reaction) {
+            userReaction = reaction.emoji;
+          }
+        }
+        
+        return {
+          id: msg._id,
+          userId: msg.author._id,
+          username: `${msg.author.firstName} ${msg.author.lastName}`,
+          avatar: msg.author.avatar ? `http://localhost:5005${msg.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.author.firstName + ' ' + msg.author.lastName)}&background=6366f1&color=fff&size=40`,
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+          attachments: msg.attachments || [],
+          likes: msg.likesCount,
+          replies: msg.repliesCount,
+          tags: msg.tags || [],
+          isLiked: msg.likes?.includes(user?._id) || false,
+          isPinned: msg.isPinned || false,
+          isEdited: msg.isEdited || false,
+          editedAt: msg.editedAt ? new Date(msg.editedAt) : undefined,
+          reactions: reactionsObj,
+          userReaction
+        };
+      });
       
       if (reset) {
         setMessages(messagesData);
@@ -407,8 +455,8 @@ const KolTechLine = () => {
     console.log('🏠 Active wall:', activeWall);
     console.log('💬 Message content:', newMessage.trim());
 
-    if (!canCreatePosts()) {
-      console.log('❌ User cannot create posts, showing auth modal');
+    if (!isLoggedIn()) {
+      console.log('❌ User is not logged in, showing auth modal');
       setShowAuthModal(true, 'post');
       return;
     }
@@ -434,14 +482,49 @@ const KolTechLine = () => {
     }
 
     console.log('✅ Starting message creation...');
+    
+    // Generate temporary ID for optimistic update
+    const tempId = `temp-${Date.now()}`;
+    
+    // Create optimistic message with file previews
+    const optimisticAttachments = filePreviews.map(preview => ({
+      type: preview.type,
+      url: preview.preview, // Use local preview URL temporarily
+      filename: preview.file.name
+    }));
+    
+    const optimisticMessage: Message = {
+      id: tempId,
+      userId: user!._id,
+      username: `${user!.firstName} ${user!.lastName}`,
+      avatar: user!.avatar ? `http://localhost:5005${user!.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(user!.firstName + ' ' + user!.lastName)}&background=6366f1&color=fff&size=40`,
+      content: newMessage.trim(),
+      timestamp: new Date(),
+      attachments: optimisticAttachments as any,
+      likes: 0,
+      replies: 0,
+      tags: extractTagsFromContent(newMessage),
+      isLiked: false,
+      isEdited: false
+    };
+    
+    // OPTIMISTIC UPDATE - мгновенно добавляем сообщение в UI
+    setMessages(prev => [optimisticMessage, ...prev]);
+    
+    // Очищаем форму сразу для лучшего UX
+    const messageContent = newMessage.trim();
+    const filesToUpload = [...selectedFiles];
+    setNewMessage('');
+    setSelectedFiles([]);
+    setFilePreviews([]);
     setSendingMessage(true);
     
     try {
       // Upload files first if any
       const attachments = [];
-      console.log('📁 Files to upload:', selectedFiles.length);
+      console.log('📁 Files to upload:', filesToUpload.length);
       
-      for (const file of selectedFiles) {
+      for (const file of filesToUpload) {
         try {
           console.log('📤 Uploading file:', file.name, 'Type:', file.type);
           let uploadResponse;
@@ -473,27 +556,27 @@ const KolTechLine = () => {
       console.log('📎 Final attachments array:', attachments);
 
       const messageData = {
-        content: newMessage.trim() || '', // Allow empty content if there are attachments
+        content: messageContent || '',
         wallId: activeWall,
         attachments,
-        tags: extractTagsFromContent(newMessage)
+        tags: extractTagsFromContent(messageContent)
       };
 
       console.log('📤 Sending message data:', messageData);
 
-      // Create message
+      // Create message on server
       const response = await messageApi.createMessage(messageData);
       console.log('✅ Message created successfully:', response);
 
-      // Add to local state
-      const newMsg: Message = {
+      // Replace optimistic message with real one from server
+      const realMessage: Message = {
         id: response.data.message._id,
         userId: response.data.message.author._id,
         username: `${response.data.message.author.firstName} ${response.data.message.author.lastName}`,
         avatar: response.data.message.author.avatar ? `http://localhost:5005${response.data.message.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(response.data.message.author.firstName + ' ' + response.data.message.author.lastName)}&background=6366f1&color=fff&size=40`,
         content: response.data.message.content,
         timestamp: new Date(response.data.message.createdAt),
-        attachments: response.data.message.attachments || attachments, // Use uploaded attachments if server doesn't return them
+        attachments: response.data.message.attachments || attachments,
         likes: 0,
         replies: 0,
         tags: response.data.message.tags || [],
@@ -501,18 +584,38 @@ const KolTechLine = () => {
         isEdited: false
       };
       
-      console.log('💾 Adding message to local state with attachments:', newMsg.attachments);
-
-      setMessages(prev => [newMsg, ...prev]);
-      setNewMessage('');
-      setSelectedFiles([]);
-      setFilePreviews([]);
+      // Replace temporary message with real one
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId ? realMessage : msg
+      ));
       
-      console.log('✅ Message added to local state');
+      console.log('✅ Optimistic message replaced with real message');
     } catch (error: any) {
       console.error('❌ Error sending message:', error);
       console.error('❌ Error details:', error.response?.data || error.message);
-      alert(`Error sending message: ${error.message || 'Please try again.'}`);
+      
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      
+      // Restore form data
+      setNewMessage(messageContent);
+      setSelectedFiles(filesToUpload);
+      // Regenerate previews
+      filesToUpload.forEach(file => {
+        if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            setFilePreviews(prev => [...prev, {
+              file,
+              preview: e.target?.result as string,
+              type: file.type.startsWith('image/') ? 'image' : 'video'
+            }]);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+      
+      showError(`❌ Error sending message: ${error.message || 'Please try again.'}`);
     } finally {
       setSendingMessage(false);
     }
@@ -673,7 +776,7 @@ const KolTechLine = () => {
 
   const createComment = async (messageId: string, content: string) => {
     try {
-      await messageApi.addComment(messageId, content);
+      const response = await messageApi.addComment(messageId, content);
       
       // Update replies count
       setMessages(prev => prev.map(msg =>
@@ -682,10 +785,88 @@ const KolTechLine = () => {
           : msg
       ));
       
+      // If replies are expanded, add new reply to the list
+      if (expandedReplies.has(messageId)) {
+        const newReply: Message = {
+          id: response.data.comment._id,
+          userId: response.data.comment.author._id,
+          username: `${response.data.comment.author.firstName} ${response.data.comment.author.lastName}`,
+          avatar: response.data.comment.author.avatar ? `http://localhost:5005${response.data.comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(response.data.comment.author.firstName + ' ' + response.data.comment.author.lastName)}&background=6366f1&color=fff&size=40`,
+          content: response.data.comment.content,
+          timestamp: new Date(response.data.comment.createdAt),
+          likes: 0,
+          replies: 0,
+          tags: [],
+          isLiked: false,
+          isEdited: false
+        };
+        
+        setMessageReplies(prev => ({
+          ...prev,
+          [messageId]: [...(prev[messageId] || []), newReply]
+        }));
+      }
+      
       // Clear reply state
       setReplyingTo(null);
+      showSuccess('✅ Reply posted successfully');
     } catch (error) {
       console.error('Error creating comment:', error);
+      showError('❌ Error posting reply. Please try again.');
+    }
+  };
+
+  const toggleReplies = async (messageId: string) => {
+    const isExpanded = expandedReplies.has(messageId);
+    
+    if (isExpanded) {
+      // Collapse replies
+      setExpandedReplies(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+    } else {
+      // Expand replies - load them if not already loaded
+      setExpandedReplies(prev => new Set(prev).add(messageId));
+      
+      if (!messageReplies[messageId]) {
+        // Load replies from server
+        setLoadingReplies(prev => new Set(prev).add(messageId));
+        
+        try {
+          const response = await messageApi.getComments(messageId);
+          
+          const replies = response.data.comments.map((comment: any) => ({
+            id: comment._id,
+            userId: comment.author._id,
+            username: `${comment.author.firstName} ${comment.author.lastName}`,
+            avatar: comment.author.avatar ? `http://localhost:5005${comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author.firstName + ' ' + comment.author.lastName)}&background=6366f1&color=fff&size=40`,
+            content: comment.content,
+            timestamp: new Date(comment.createdAt),
+            likes: comment.likesCount || 0,
+            replies: 0,
+            tags: [],
+            isLiked: comment.likes?.includes(user?._id) || false,
+            isEdited: comment.isEdited || false,
+            editedAt: comment.editedAt ? new Date(comment.editedAt) : undefined
+          }));
+          
+          setMessageReplies(prev => ({
+            ...prev,
+            [messageId]: replies
+          }));
+        } catch (error) {
+          console.error('Error loading replies:', error);
+          showError('❌ Error loading replies. Please try again.');
+        } finally {
+          setLoadingReplies(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(messageId);
+            return newSet;
+          });
+        }
+      }
     }
   };
 
@@ -711,29 +892,55 @@ const KolTechLine = () => {
   const handleSaveEdit = async () => {
     if (!editingMessage || !newMessage.trim()) return;
     
+    // Save original content for rollback
+    const originalMessage = messages.find(msg => msg.id === editingMessage.id);
+    if (!originalMessage) return;
+    
+    const originalContent = originalMessage.content;
+    const newContent = newMessage.trim();
+    
+    // OPTIMISTIC UPDATE - мгновенно обновляем UI
+    setMessages(prev => prev.map(msg =>
+      msg.id === editingMessage.id
+        ? {
+            ...msg,
+            content: newContent,
+            isEdited: true,
+            editedAt: new Date()
+          }
+        : msg
+    ));
+    
+    // Очищаем форму сразу
+    setEditingMessage(null);
+    setNewMessage('');
+    setSelectedFiles([]);
+    setFilePreviews([]);
+    
     try {
-      const response = await messageApi.updateMessage(editingMessage.id, newMessage.trim());
+      // Отправляем на сервер в фоне
+      await messageApi.updateMessage(editingMessage.id, newContent);
+      showSuccess('✅ Message updated successfully');
+    } catch (error) {
+      console.error('Error updating message:', error);
       
-      // Update message in local state
+      // ROLLBACK - откатываем изменения при ошибке
       setMessages(prev => prev.map(msg =>
         msg.id === editingMessage.id
           ? {
               ...msg,
-              content: newMessage.trim(),
-              isEdited: true,
-              editedAt: new Date()
+              content: originalContent,
+              isEdited: originalMessage.isEdited,
+              editedAt: originalMessage.editedAt
             }
           : msg
       ));
       
-      setEditingMessage(null);
-      setNewMessage('');
-      setSelectedFiles([]);
-      setFilePreviews([]);
-      showSuccess('Message updated successfully');
-    } catch (error) {
-      console.error('Error updating message:', error);
-      showError('Error updating message. Please try again.');
+      // Восстанавливаем режим редактирования
+      setEditingMessage({ id: editingMessage.id, content: originalContent });
+      setNewMessage(originalContent);
+      
+      showError('❌ Error updating message. Please try again.');
     }
   };
 
@@ -971,80 +1178,65 @@ const KolTechLine = () => {
   const currentWall = walls.find(w => w.id === activeWall);
 
   return (
-    <div className="min-h-screen bg-dark-900 flex flex-col">
-      <Header />
-      
-      <div className="flex-1 pt-16">
-        {/* Live Wall Ticker */}
-        <div className="bg-dark-800 border-b border-dark-700 py-4 px-6">
+    <>
+      <div className="min-h-screen bg-dark-900 flex flex-col">
+        <Header 
+          activeWall={currentWall} 
+          showWalls={showWalls}
+          setShowWalls={setShowWalls}
+          wallsCount={walls.length}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          categories={categories}
+        />
+        
+        <div className="flex-1">
+        {/* Walls list - only shown when clicked, now controlled from header */}
+        <div className={`bg-dark-800 border-b border-dark-700 py-2 transition-all duration-300 ${showWalls ? 'opacity-100' : 'opacity-0 h-0 py-0 overflow-hidden'}`}>
           <div className="container mx-auto">
-            <div className="flex items-center space-x-4 mb-4">
-              <h2 className="text-white font-semibold">Active Walls</h2>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-green-400 text-sm">Live</span>
-              </div>
-            </div>
             
-            {/* Horizontal scrolling wall list */}
-            <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
-              {filteredWalls.map((wall) => (
-                <button
-                  key={wall.id}
-                  onClick={() => setActiveWall(wall.id)}
-                  className={`flex-shrink-0 p-4 rounded-xl border transition-all duration-300 min-w-[200px] ${
-                    activeWall === wall.id
-                      ? 'bg-gradient-to-r ' + wall.color + ' border-transparent text-white'
-                      : 'bg-dark-700 border-dark-600 text-gray-300 hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3 mb-2">
-                    <wall.icon className="w-5 h-5" />
-                    <span className="font-medium">{wall.name}</span>
-                  </div>
-                  <p className="text-xs opacity-80 text-left">{wall.description}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs opacity-60">{wall.participants} members</span>
-                    <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {/* Walls list - only shown when clicked */}
+            {showWalls && (
+              <div className="mt-4 space-y-4 animate-fade-in">
+                <h3 className="text-white font-medium">Available Walls</h3>
+                <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
+                  {filteredWalls.map((wall) => (
+                    <button
+                      key={wall.id}
+                      onClick={() => {
+                        setActiveWall(wall.id);
+                        setShowWalls(false);
+                      }}
+                      className={`flex-shrink-0 p-4 rounded-xl border transition-all duration-300 min-w-[200px] ${
+                        activeWall === wall.id
+                          ? 'bg-gradient-to-r ' + wall.color + ' border-transparent text-white'
+                          : 'bg-dark-700 border-dark-600 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        {wall.icon && <wall.icon className="w-5 h-5" />}
+                        <span className="font-medium">{wall.name}</span>
+                      </div>
+                      <p className="text-xs opacity-80 text-left">{wall.description}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs opacity-60">{wall.participants} members</span>
+                        <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-dark-800/50 border-b border-dark-700 py-4 px-6">
-          <div className="container mx-auto">
-            <div className="flex flex-wrap items-center gap-4">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-2 bg-dark-700 text-gray-300 px-4 py-2 rounded-lg hover:bg-dark-600 transition-colors"
-              >
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
-              </button>
-
-              {/* Quick category filters */}
-              <div className="flex space-x-2">
-                {categories.map(category => (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      selectedCategory === category.id
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-dark-700 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {category.name}
-                  </button>
-                ))}
-              </div>
-
+        {/* Filters - Only show when there are active tags or filters are expanded */}
+        {(selectedTags.length > 0 || showFilters) && (
+          <div className="bg-dark-800 border-b border-dark-700 py-2">
+            <div className="container mx-auto">
               {/* Active tags */}
               {selectedTags.length > 0 && (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide">
                   <span className="text-gray-400 text-sm">Tags:</span>
                   {selectedTags.map(tag => (
                     <span
@@ -1057,126 +1249,111 @@ const KolTechLine = () => {
                   ))}
                 </div>
               )}
-            </div>
 
-            {/* Extended filters */}
-            {showFilters && (
-              <div className="mt-4 p-4 bg-dark-700 rounded-xl border border-dark-600">
-                <div className="grid md:grid-cols-3 gap-6">
-                  {/* Categories */}
-                  <div>
-                    <h4 className="text-white font-medium mb-3">Categories</h4>
-                    <div className="space-y-2">
-                      {categories.map(category => (
-                        <label key={category.id} className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            name="category"
-                            checked={selectedCategory === category.id}
-                            onChange={() => setSelectedCategory(category.id)}
-                            className="text-primary-500"
-                          />
-                          <span className="text-gray-300 text-sm">{category.name}</span>
-                        </label>
-                      ))}
+              {/* Extended filters */}
+              {showFilters && (
+                <div className="mt-4 p-4 bg-dark-700 rounded-xl border border-dark-600">
+                  <div className="grid md:grid-cols-3 gap-6">
+                    {/* Categories */}
+                    <div>
+                      <h4 className="text-white font-medium mb-3">Categories</h4>
+                      <div className="space-y-2">
+                        {categories.map(category => (
+                          <label key={category.id} className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="category"
+                              checked={selectedCategory === category.id}
+                              onChange={() => setSelectedCategory(category.id)}
+                              className="text-primary-500"
+                            />
+                            <span className="text-gray-300 text-sm">{category.name}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Participants */}
-                  <div>
-                    <h4 className="text-white font-medium mb-3">Wall Size</h4>
-                    <div className="space-y-2">
-                      {participantRanges.map(range => (
-                        <label key={range.id} className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            name="participants"
-                            checked={selectedParticipants === range.id}
-                            onChange={() => setSelectedParticipants(range.id)}
-                            className="text-primary-500"
-                          />
-                          <span className="text-gray-300 text-sm">{range.name}</span>
-                        </label>
-                      ))}
+                    {/* Participants */}
+                    <div>
+                      <h4 className="text-white font-medium mb-3">Wall Size</h4>
+                      <div className="space-y-2">
+                        {participantRanges.map(range => (
+                          <label key={range.id} className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="participants"
+                              checked={selectedParticipants === range.id}
+                              onChange={() => setSelectedParticipants(range.id)}
+                              className="text-primary-500"
+                            />
+                            <span className="text-gray-300 text-sm">{range.name}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Tags */}
-                  <div>
-                    <h4 className="text-white font-medium mb-3">Popular Tags</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {popularTags.map(tag => (
-                        <button
-                          key={tag}
-                          onClick={() => toggleTag(tag)}
-                          className={`px-2 py-1 rounded text-xs transition-colors ${
-                            selectedTags.includes(tag)
-                              ? 'bg-accent-purple text-white'
-                              : 'bg-dark-600 text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          #{tag}
-                        </button>
-                      ))}
+                    {/* Tags */}
+                    <div>
+                      <h4 className="text-white font-medium mb-3">Popular Tags</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {popularTags.map(tag => (
+                          <button
+                            key={tag}
+                            onClick={() => toggleTag(tag)}
+                            className={`px-2 py-1 rounded text-xs transition-colors ${
+                              selectedTags.includes(tag)
+                                ? 'bg-accent-purple text-white'
+                                : 'bg-dark-600 text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            #{tag}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex max-w-7xl mx-auto w-full">
-          {/* Messages Feed */}
-          <div className="flex-1 flex flex-col max-w-4xl">
-            {/* Current Wall Header */}
-            <div className="bg-dark-800 border-b border-dark-700 p-6">
+        {/* Main Content Area - Full width with sidebar space */}
+        <div className="flex-1 flex w-full">
+          {/* Messages Feed - With right padding to account for fixed sidebar */}
+          <div className="flex-1 flex flex-col lg:pr-80">
+            {/* Current Wall Header - Fixed position below main header */}
+            <div className="bg-dark-800 p-4 fixed top-14 left-0 right-0 lg:right-80 z-30 border-b border-dark-700">
               <div className="container mx-auto">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 bg-gradient-to-r ${currentWall?.color} rounded-xl`}>
-                      {currentWall?.icon && <currentWall.icon className="w-6 h-6 text-white" />}
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 bg-gradient-to-r ${currentWall?.color} rounded-lg`}>
+                      {currentWall?.icon && <currentWall.icon className="w-5 h-5 text-white" />}
                     </div>
                     <div>
-                      <h1 className="text-2xl font-bold text-white">{currentWall?.name}</h1>
-                      <p className="text-gray-400">{currentWall?.description}</p>
+                      <p className="text-gray-400 text-sm truncate max-w-md">{currentWall?.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2 text-gray-400">
-                      <Users className="w-4 h-4" />
-                      <span className="text-sm">{currentWall?.participants} members</span>
-                    </div>
-                    
-                    {/* Wall Membership Status & Actions */}
-                    {isLoggedIn() && currentWall && (
-                      <>
-                        {!currentWall.isMember ? (
-                          <button
-                            onClick={() => handleJoinWall(currentWall.id)}
-                            className="flex items-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                            <span className="text-sm">Join Wall</span>
-                          </button>
-                        ) : (
-                          <>
-                            <div className="flex items-center space-x-2 text-green-400 text-sm">
-                              <Users className="w-4 h-4" />
-                              <span>Member</span>
-                            </div>
-                            
-                            <button
-                              onClick={handleStartKolophone}
-                              className="flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-accent-purple text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all"
-                            >
-                              <PhoneCall className="w-4 h-4" />
-                              <span className="text-sm">Start Kolophone</span>
-                            </button>
-                          </>
-                        )}
-                      </>
+                  
+                  <div className="flex items-center space-x-3">
+                    {isLoggedIn() && currentWall && !currentWall.isMember ? (
+                      <button
+                        onClick={() => handleJoinWall(currentWall.id)}
+                        className="flex items-center space-x-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1 rounded-lg hover:shadow-lg transition-all text-sm"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Join</span>
+                      </button>
+                    ) : (
+                      isLoggedIn() && currentWall && currentWall.isMember && (
+                        <button
+                          onClick={handleStartKolophone}
+                          className="flex items-center space-x-1 bg-gradient-to-r from-primary-500 to-accent-purple text-white px-3 py-1 rounded-lg hover:shadow-lg transition-all text-sm"
+                        >
+                          <PhoneCall className="w-4 h-4" />
+                          <span>Call</span>
+                        </button>
+                      )
                     )}
                     
                     <button className="p-2 bg-dark-700 text-gray-400 rounded-lg hover:text-white transition-colors">
@@ -1188,33 +1365,49 @@ const KolTechLine = () => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6" onScroll={(e) => {
+            <div className="flex-1 overflow-y-auto p-6 pb-32 pt-32 container mx-auto relative" onScroll={(e) => {
               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
               if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMoreMessages && !loadingMore) {
                 loadMoreMessages();
               }
             }}>
-              <div className="max-w-3xl mx-auto space-y-6">
+              {/* Animated background */}
+              <div className="fixed inset-0 pointer-events-none opacity-30">
+                <div className="absolute top-20 left-10 w-72 h-72 bg-primary-500/10 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute top-40 right-20 w-96 h-96 bg-accent-purple/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                <div className="absolute bottom-40 left-1/3 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+              </div>
+
+              <div className="max-w-3xl mx-auto space-y-6 relative z-10">
                 {loading ? (
                   <div className="flex justify-center py-8">
                     <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 ) : (
-                  messages.map((message) => (
+                  messages.map((message) => {
+                    const isOwnMessage = user && message.userId === user._id;
+                    return (
                     <div
                       key={message.id}
-                      className="bg-dark-800 border border-dark-700 rounded-2xl p-6 hover:border-dark-600 transition-colors"
+                      className={`group relative rounded-2xl p-6 transition-all duration-300 ${
+                        isOwnMessage
+                          ? 'bg-gradient-to-br from-primary-500/10 to-accent-purple/10 border border-primary-500/30 hover:border-primary-500/50'
+                          : 'bg-dark-800 border border-dark-700 hover:border-dark-600'
+                      }`}
+                      onMouseEnter={() => setShowReactionPicker(message.id)}
+                      onMouseLeave={() => setShowReactionPicker(null)}
                     >
                     {/* Message Header */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <Link to={`/user/${message.userId}`} className="group">
+                        <Link to={`/user/${message.userId}`} className="group/avatar">
                           <img
                             src={message.avatar}
                             alt={message.username}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-transparent group-hover:border-primary-500/50 transition-colors"
+                            className="w-10 h-10 rounded-full object-cover border-2 border-transparent group-hover/avatar:border-primary-500/50 transition-colors"
                           />
                         </Link>
+                        
                         <div>
                           <div className="flex items-center space-x-2">
                             <Link
@@ -1239,9 +1432,6 @@ const KolTechLine = () => {
                           </p>
                         </div>
                       </div>
-                      <button className="text-gray-400 hover:text-white transition-colors">
-                        <MoreHorizontal className="w-5 h-5" />
-                      </button>
                     </div>
 
                     {/* Message Content */}
@@ -1311,77 +1501,242 @@ const KolTechLine = () => {
                       )}
                     </div>
 
-                    {/* Message Actions */}
-                    <div className="flex items-center justify-between pt-4 border-t border-dark-700">
-                      <div className="flex items-center space-x-6">
-                        <button
-                          onClick={() => handleLike(message.id)}
-                          className={`flex items-center space-x-2 transition-colors ${
-                            message.isLiked
-                              ? 'text-red-400'
-                              : 'text-gray-400 hover:text-red-400'
-                          }`}
-                        >
-                          <Heart className={`w-4 h-4 ${message.isLiked ? 'fill-current' : ''}`} />
-                          <span className="text-sm">{message.likes}</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => handleComment(message.id)}
-                          className="flex items-center space-x-2 text-gray-400 hover:text-blue-400 transition-colors"
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                          <span className="text-sm">{message.replies}</span>
-                        </button>
-                        
-                        <button className="flex items-center space-x-2 text-gray-400 hover:text-green-400 transition-colors">
-                          <Share2 className="w-4 h-4" />
-                          <span className="text-sm">Share</span>
-                        </button>
-
-                        {/* Private Chat Button */}
-                        {isLoggedIn() && message.userId !== user?._id && (
-                          <button
-                            onClick={() => handleStartPrivateChat(message.userId)}
-                            className="flex items-center space-x-2 text-gray-400 hover:text-primary-400 transition-colors"
-                          >
-                            <Phone className="w-4 h-4" />
-                            <span className="text-sm">Chat</span>
-                          </button>
-                        )}
-                      </div>
+                    {/* Compact Message Footer - Reaction counters and picker */}
+                    <div className="relative">
+                      {/* Show counters only if there are reactions or replies */}
+                      {((message.reactions && Object.keys(message.reactions).length > 0) || message.replies > 0) && (
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          {message.reactions && Object.entries(message.reactions).map(([emoji, data]) => (
+                            <div 
+                              key={emoji}
+                              className="flex items-center bg-dark-700/50 rounded-full px-2 py-1 cursor-pointer hover:bg-dark-700 transition-colors"
+                              onClick={() => setShowReactionPicker(showReactionPicker === message.id ? null : message.id)}
+                            >
+                              <span className="text-sm">{emoji}</span>
+                              <span className="text-xs text-gray-400 ml-1">{data.count}</span>
+                            </div>
+                          ))}
+                          {message.replies > 0 && (
+                            <button
+                              onClick={() => toggleReplies(message.id)}
+                              className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1"
+                            >
+                              <MessageCircle className="w-3 h-3" />
+                              <span>{message.replies} {message.replies === 1 ? 'reply' : 'replies'}</span>
+                              <span className="text-gray-500">{expandedReplies.has(message.id) ? '▼' : '▶'}</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                       
-                      <div className="flex items-center space-x-2">
-                        {message.isPinned && (
-                          <Pin className="w-4 h-4 text-yellow-400" />
+                      {/* Replies Section */}
+                      {expandedReplies.has(message.id) && (
+                        <div className="mt-4 pl-4 border-l-2 border-dark-600 space-y-3">
+                          {loadingReplies.has(message.id) ? (
+                            <div className="flex justify-center py-4">
+                              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          ) : (
+                            messageReplies[message.id]?.map((reply) => (
+                              <div key={reply.id} className="bg-dark-700/50 rounded-lg p-3">
+                                <div className="flex items-start space-x-2 mb-2">
+                                  <Link to={`/user/${reply.userId}`}>
+                                    <img
+                                      src={reply.avatar}
+                                      alt={reply.username}
+                                      className="w-6 h-6 rounded-full object-cover"
+                                    />
+                                  </Link>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2">
+                                      <Link to={`/user/${reply.userId}`}>
+                                        <span className="text-white text-sm font-medium hover:text-primary-400 transition-colors">
+                                          {reply.username}
+                                        </span>
+                                      </Link>
+                                      <span className="text-gray-500 text-xs">
+                                        {formatTime(reply.timestamp)}
+                                      </span>
+                                      {reply.isEdited && (
+                                        <span className="text-xs text-gray-500 bg-dark-600 px-1 py-0.5 rounded">
+                                          edited
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-gray-300 text-sm mt-1">{reply.content}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Reaction Picker - показывается при наведении на сообщение или клике на реакции */}
+                      {showReactionPicker === message.id && (
+                          <div className="absolute left-0 top-full mt-2 bg-dark-700 border border-dark-600 rounded-full px-3 py-2 shadow-xl flex items-center gap-2 animate-scale-in z-50">
+                            {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!canLikeContent()) {
+                                    setShowAuthModal(true, 'like');
+                                    setShowReactionPicker(null);
+                                    return;
+                                  }
+                                  
+                                  // OPTIMISTIC UPDATE - мгновенно обновляем UI
+                                  const currentReactions = { ...message.reactions };
+                                  const currentUserReaction = message.userReaction;
+                                  const userId = user?._id;
+                                  
+                                  // Создаём новое состояние реакций
+                                  const newReactions = { ...currentReactions };
+                                  
+                                  // Если пользователь уже поставил эту реакцию - удаляем
+                                  if (currentUserReaction === emoji) {
+                                    if (newReactions[emoji]) {
+                                      newReactions[emoji] = {
+                                        count: Math.max(0, newReactions[emoji].count - 1),
+                                        users: newReactions[emoji].users.filter(id => id !== userId)
+                                      };
+                                      if (newReactions[emoji].count === 0) {
+                                        delete newReactions[emoji];
+                                      }
+                                    }
+                                  } else {
+                                    // Удаляем старую реакцию пользователя если была
+                                    if (currentUserReaction && newReactions[currentUserReaction]) {
+                                      newReactions[currentUserReaction] = {
+                                        count: Math.max(0, newReactions[currentUserReaction].count - 1),
+                                        users: newReactions[currentUserReaction].users.filter(id => id !== userId)
+                                      };
+                                      if (newReactions[currentUserReaction].count === 0) {
+                                        delete newReactions[currentUserReaction];
+                                      }
+                                    }
+                                    
+                                    // Добавляем новую реакцию
+                                    if (newReactions[emoji]) {
+                                      newReactions[emoji] = {
+                                        count: newReactions[emoji].count + 1,
+                                        users: [...newReactions[emoji].users, userId!]
+                                      };
+                                    } else {
+                                      newReactions[emoji] = {
+                                        count: 1,
+                                        users: [userId!]
+                                      };
+                                    }
+                                  }
+                                  
+                                  const newUserReaction = currentUserReaction === emoji ? undefined : emoji;
+                                  
+                                  // Мгновенно обновляем UI (Optimistic Update)
+                                  setMessages(prev => prev.map(msg =>
+                                    msg.id === message.id
+                                      ? {
+                                          ...msg,
+                                          reactions: newReactions,
+                                          userReaction: newUserReaction
+                                        }
+                                      : msg
+                                  ));
+                                  
+                                  // Отправляем запрос на сервер в фоне
+                                  try {
+                                    const response = await messageApi.toggleReaction(message.id, emoji);
+                                    
+                                    // Синхронизируем с реальными данными от сервера
+                                    setMessages(prev => prev.map(msg =>
+                                      msg.id === message.id
+                                        ? {
+                                            ...msg,
+                                            reactions: response.data.reactions.reduce((acc: any, r: any) => {
+                                              acc[r.emoji] = { count: r.count, users: r.users };
+                                              return acc;
+                                            }, {}),
+                                            userReaction: response.data.userReaction
+                                          }
+                                        : msg
+                                    ));
+                                  } catch (error) {
+                                    console.error('Error toggling reaction:', error);
+                                    
+                                    // В случае ошибки - откатываем изменения (Rollback)
+                                    setMessages(prev => prev.map(msg =>
+                                      msg.id === message.id
+                                        ? {
+                                            ...msg,
+                                            reactions: currentReactions,
+                                            userReaction: currentUserReaction
+                                          }
+                                        : msg
+                                    ));
+                                    
+                                    showError('❌ Failed to update reaction. Please try again.');
+                                  }
+                                }}
+                                className={`text-2xl hover:scale-125 transition-transform ${
+                                  message.userReaction === emoji ? 'scale-110 drop-shadow-lg' : ''
+                                }`}
+                                title={emoji}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
                         )}
+                    </div>
+                    
+                    {/* Hover Actions - Compact like messenger */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-dark-700/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-lg z-50">
+                      {/* Three Dots Menu */}
+                      <div className="relative z-50">
+                        <button
+                          onClick={() => setMessageMenuOpen(messageMenuOpen === message.id ? null : message.id)}
+                          className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-dark-600"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
                         
-                        <Star className="w-4 h-4 text-gray-400 hover:text-yellow-400 transition-colors cursor-pointer" />
-                        
-                        {/* Message Options Menu */}
-                        <div className="relative group">
-                          <button className="text-gray-400 hover:text-white transition-colors">
-                            <MoreHorizontal className="w-5 h-5" />
-                          </button>
-                          
-                          {/* Dropdown Menu */}
-                          <div className="absolute right-0 top-full mt-2 w-48 bg-dark-700 border border-dark-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                        {/* Dropdown Menu */}
+                        {messageMenuOpen === message.id && (
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-dark-700 border border-dark-600 rounded-lg shadow-xl z-[100] animate-fade-in">
+                            <button
+                              onClick={() => {
+                                handleComment(message.id);
+                                setMessageMenuOpen(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 rounded-t-lg"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>Reply</span>
+                            </button>
+                            
                             {isLoggedIn() && message.userId === user?._id && (
                               <>
                                 <button
-                                  onClick={() => handleEditMessage(message)}
+                                  onClick={() => {
+                                    handleEditMessage(message);
+                                    setMessageMenuOpen(null);
+                                  }}
                                   className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2"
                                 >
                                   <Settings className="w-4 h-4" />
-                                  <span>Edit Message</span>
+                                  <span>Edit</span>
                                 </button>
                                 
                                 <button
-                                  onClick={() => handleDeleteMessage(message.id)}
+                                  onClick={() => {
+                                    handleDeleteMessage(message.id);
+                                    setMessageMenuOpen(null);
+                                  }}
                                   className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2"
                                 >
                                   <Flag className="w-4 h-4" />
-                                  <span>Delete Message</span>
+                                  <span>Delete</span>
                                 </button>
                               </>
                             )}
@@ -1389,15 +1744,21 @@ const KolTechLine = () => {
                             {isLoggedIn() && message.userId !== user?._id && (
                               <>
                                 <button
-                                  onClick={() => handleStartPrivateChat(message.userId)}
+                                  onClick={() => {
+                                    handleStartPrivateChat(message.userId);
+                                    setMessageMenuOpen(null);
+                                  }}
                                   className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2"
                                 >
                                   <Phone className="w-4 h-4" />
-                                  <span>Message User</span>
+                                  <span>Message</span>
                                 </button>
                                 
                                 <button
-                                  onClick={() => handleAddContact(message.userId)}
+                                  onClick={() => {
+                                    handleAddContact(message.userId);
+                                    setMessageMenuOpen(null);
+                                  }}
                                   className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2"
                                 >
                                   <UserPlus className="w-4 h-4" />
@@ -1405,20 +1766,32 @@ const KolTechLine = () => {
                                 </button>
                                 
                                 <button
-                                  onClick={() => handleReport(message.id)}
-                                  className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2"
+                                  onClick={() => {
+                                    handleReport(message.id);
+                                    setMessageMenuOpen(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 rounded-b-lg"
                                 >
                                   <Flag className="w-4 h-4" />
                                   <span>Report</span>
                                 </button>
                               </>
                             )}
+                            
+                            <button
+                              onClick={() => setMessageMenuOpen(null)}
+                              className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 rounded-b-lg"
+                            >
+                              <Share2 className="w-4 h-4" />
+                              <span>Share</span>
+                            </button>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
                 
                 {/* Load More Button */}
@@ -1453,76 +1826,10 @@ const KolTechLine = () => {
               </div>
             </div>
 
-            {/* Message Input */}
-            <div className="bg-dark-800 border-t border-dark-700 p-6">
-              <div className="max-w-3xl mx-auto">
-                {/* Reply Banner */}
-                {replyingTo && (
-                  <div className="mb-4 p-3 bg-dark-600 border border-dark-500 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <MessageCircle className="w-4 h-4 text-blue-400" />
-                        <div>
-                          <p className="text-blue-400 text-sm font-medium">
-                            Replying to {replyingTo.username}
-                          </p>
-                          <p className="text-gray-400 text-xs truncate max-w-md">
-                            {replyingTo.content}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setReplyingTo(null)}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Edit Banner */}
-                {editingMessage && (
-                  <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Settings className="w-4 h-4 text-yellow-400" />
-                        <p className="text-yellow-400 text-sm font-medium">
-                          Editing message
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleCancelEdit}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Wall Membership Warning */}
-                {isLoggedIn() && currentWall && !currentWall.isMember && (
-                  <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <UserPlus className="w-5 h-5 text-yellow-400" />
-                        <div>
-                          <p className="text-yellow-400 font-medium">Join this wall to participate</p>
-                          <p className="text-gray-400 text-sm">You need to be a member to post messages, like, and comment.</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleJoinWall(currentWall.id)}
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center space-x-2"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Join Now</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
+            {/* Message Input - Fixed at bottom of screen with full width up to sidebar */}
+            <div className="bg-dark-800 border-t border-dark-700 fixed bottom-0 left-0 right-0 lg:right-80 z-10">
+              <div className="py-3 px-4">
+                <div className="container mx-auto">
                 <div
                   className={`bg-dark-700 border border-dark-600 rounded-2xl p-4 transition-all ${
                     isDragging ? 'border-primary-500 bg-primary-500/5' : ''
@@ -1541,163 +1848,208 @@ const KolTechLine = () => {
                     </div>
                   )}
                   
-                  <div className="flex items-end space-x-4">
+                  <div className="flex items-center space-x-4">
                     <div className="flex-1">
                       <textarea
                         ref={textareaRef}
                         value={newMessage}
-                        onChange={handleInputChange}
-                        onKeyPress={handleKeyPress}
+                        onChange={(e) => {
+                          handleInputChange(e);
+                          // Auto-resize textarea with max height of 100px
+                          const target = e.target;
+                          target.style.height = 'auto';
+                          target.style.height = Math.min(target.scrollHeight, 100) + 'px';
+                        }}
+                        onKeyDown={handleKeyPress}
                         placeholder={
                           editingMessage ? 'Edit your message...' :
                           replyingTo ? `Reply to ${replyingTo.username}...` :
                           `Share something in ${currentWall?.name}...`
                         }
-                        className="w-full bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none h-[80px]"
-                        rows={3}
+                        className="w-full bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none min-h-[44px] max-h-[100px] overflow-y-auto scrollbar-hide rounded-xl p-2"
+                        style={{
+                          height: '44px',
+                          backdropFilter: 'blur(8px)',
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,video/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
                       />
                       
-                      {/* Selected Files Preview */}
-                      {filePreviews.length > 0 && (
-                        <div className="mb-3 p-3 bg-dark-600 rounded-lg">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                            {filePreviews.map((preview, index) => (
-                              <div key={index} className="relative group">
-                                <div className="aspect-square rounded-lg overflow-hidden bg-dark-700">
-                                  {preview.type === 'image' ? (
-                                    <img
-                                      src={preview.preview}
-                                      alt={preview.file.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <video
-                                      src={preview.preview}
-                                      className="w-full h-full object-cover"
-                                      muted
-                                      playsInline
-                                    />
-                                  )}
-                                  
-                                  {/* File info overlay */}
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                                    <div className="text-white text-xs truncate">
-                                      {preview.file.name}
-                                    </div>
-                                    <div className="text-white text-xs">
-                                      {preview.type === 'image' ? '📷' : '🎥'} {(preview.file.size / 1024 / 1024).toFixed(1)}MB
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Remove button */}
-                                  <button
-                                    onClick={() => removeFile(index)}
-                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors flex items-center justify-center"
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {selectedFiles.length >= 15 && (
-                            <p className="text-yellow-400 text-xs mt-2">
-                              Maximum 15 files reached
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Attachment Options */}
-                      <div className="flex items-center justify-between mt-3">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={selectedFiles.length >= 15}
+                        className={`p-2 rounded-lg transition-colors ${
+                          selectedFiles.length >= 15
+                            ? 'text-gray-600 cursor-not-allowed'
+                            : 'text-gray-400 hover:text-white hover:bg-dark-600'
+                        }`}
+                        title={selectedFiles.length >= 15 ? 'Maximum files reached' : 'Upload Images/Videos (or drag & drop)'}
+                      >
+                        <Image className="w-5 h-5" />
+                      </button>
+                      
+                      <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-600 rounded-lg transition-colors">
+                        <Smile className="w-5 h-5" />
+                      </button>
+                      
+                      <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-600 rounded-lg transition-colors">
+                        <Hash className="w-5 h-5" />
+                      </button>
+                      
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={(!newMessage.trim() && selectedFiles.length === 0) || sendingMessage}
+                        className={`p-3 rounded-xl transition-all duration-300 flex items-center space-x-2 ${
+                          (newMessage.trim() || selectedFiles.length > 0) && !sendingMessage
+                            ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white hover:shadow-lg'
+                            : 'bg-dark-600 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {sendingMessage ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        ) : (
+                          <Send className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Reply Banner */}
+                  {replyingTo && (
+                    <div className="mb-4 p-3 bg-dark-600 border border-dark-500 rounded-xl">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            accept="image/*,video/*"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                          />
-                          
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={selectedFiles.length >= 15}
-                            className={`p-2 rounded-lg transition-colors ${
-                              selectedFiles.length >= 15
-                                ? 'text-gray-600 cursor-not-allowed'
-                                : 'text-gray-400 hover:text-white hover:bg-dark-600'
-                            }`}
-                            title={selectedFiles.length >= 15 ? 'Maximum files reached' : 'Upload Images/Videos (or drag & drop)'}
-                          >
-                            <Image className="w-5 h-5" />
-                          </button>
-                          
-                          <button
-                            onClick={() => {
-                              if (fileInputRef.current && selectedFiles.length < 15) {
-                                fileInputRef.current.accept = 'video/*';
-                                fileInputRef.current.click();
-                              }
-                            }}
-                            disabled={selectedFiles.length >= 15}
-                            className={`p-2 rounded-lg transition-colors ${
-                              selectedFiles.length >= 15
-                                ? 'text-gray-600 cursor-not-allowed'
-                                : 'text-gray-400 hover:text-white hover:bg-dark-600'
-                            }`}
-                            title={selectedFiles.length >= 15 ? 'Maximum files reached' : 'Upload Video'}
-                          >
-                            <Video className="w-5 h-5" />
-                          </button>
-                          
-                          <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-600 rounded-lg transition-colors">
-                            <Smile className="w-5 h-5" />
-                          </button>
-                          
-                          <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-600 rounded-lg transition-colors">
-                            <Paperclip className="w-5 h-5" />
-                          </button>
-                          
-                          <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-600 rounded-lg transition-colors">
-                            <Hash className="w-5 h-5" />
-                          </button>
+                          <MessageCircle className="w-4 h-4 text-blue-400" />
+                          <div>
+                            <p className="text-blue-400 text-sm font-medium">
+                              Replying to {replyingTo.username}
+                            </p>
+                            <p className="text-gray-400 text-xs truncate max-w-md">
+                              {replyingTo.content}
+                            </p>
+                          </div>
                         </div>
-                        
                         <button
-                          onClick={handleSendMessage}
-                          disabled={(!newMessage.trim() && selectedFiles.length === 0) || sendingMessage}
-                          className={`p-3 rounded-xl transition-all duration-300 flex items-center space-x-2 ${
-                            (newMessage.trim() || selectedFiles.length > 0) && !sendingMessage
-                              ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white hover:shadow-lg'
-                              : 'bg-dark-600 text-gray-500 cursor-not-allowed'
-                          }`}
+                          onClick={() => setReplyingTo(null)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
                         >
-                          {sendingMessage ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              <span className="text-sm">Sending...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Send className="w-5 h-5" />
-                              {editingMessage && <span className="text-sm">Save</span>}
-                              {replyingTo && <span className="text-sm">Reply</span>}
-                            </>
-                          )}
+                          ×
                         </button>
                       </div>
                     </div>
+                  )}
+
+                  {/* Edit Banner */}
+                  {editingMessage && (
+                    <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Settings className="w-4 h-4 text-yellow-400" />
+                          <p className="text-yellow-400 text-sm font-medium">
+                            Editing message
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Wall Membership Warning */}
+                  {isLoggedIn() && currentWall && !currentWall.isMember && (
+                    <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <UserPlus className="w-5 h-5 text-yellow-400" />
+                          <div>
+                            <p className="text-yellow-400 font-medium">Join this wall to participate</p>
+                            <p className="text-gray-400 text-sm">You need to be a member to post messages, like, and comment.</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleJoinWall(currentWall.id)}
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center space-x-2"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span>Join Now</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Selected Files Preview */}
+                  {filePreviews.length > 0 && (
+                    <div className="mb-3 p-3 bg-dark-600 rounded-lg">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {filePreviews.map((preview, index) => (
+                          <div key={index} className="relative group">
+                            <div className="aspect-square rounded-lg overflow-hidden bg-dark-700">
+                              {preview.type === 'image' ? (
+                                <img
+                                  src={preview.preview}
+                                  alt={preview.file.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <video
+                                  src={preview.preview}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  playsInline
+                                />
+                              )}
+                              
+                              {/* File info overlay */}
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                                <div className="text-white text-xs truncate">
+                                  {preview.file.name}
+                                </div>
+                                <div className="text-white text-xs">
+                                  {preview.type === 'image' ? '📷' : '🎥'} {(preview.file.size / 1024 / 1024).toFixed(1)}MB
+                                </div>
+                              </div>
+                              
+                              {/* Remove button */}
+                              <button
+                                onClick={() => removeFile(index)}
+                                className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors flex items-center justify-center"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {selectedFiles.length >= 15 && (
+                        <p className="text-yellow-400 text-xs mt-2">
+                          Maximum 15 files reached
+                        </p>
+                      )}
+                    </div>
+                  )}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Sidebar - Wall Info */}
-          <div className="w-80 bg-dark-800 border-l border-dark-700 p-6 hidden lg:block">
-            <div className="space-y-6">
+            {/* Sidebar - Wall Info - Fixed from top of page */}
+            <div className="w-80 bg-dark-800 border-l border-dark-700 p-6 hidden lg:block fixed right-0 top-14 bottom-0 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937', paddingBottom: '120px' }}>
+            <div className="space-y-6 pb-20">
               {/* Current Wall Info */}
               <div className="bg-dark-700 rounded-xl p-4">
                 <h3 className="text-white font-semibold mb-3">Wall Information</h3>
@@ -1830,6 +2182,8 @@ const KolTechLine = () => {
                 </button>
               </div>
             </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1872,7 +2226,7 @@ const KolTechLine = () => {
           duration={toast.duration}
         />
       ))}
-    </div>
+    </>
   );
 };
 

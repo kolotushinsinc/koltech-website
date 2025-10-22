@@ -80,8 +80,9 @@ export const createMessage = async (req: Request, res: Response, next: NextFunct
       attachmentsCount: message.attachments?.length || 0
     });
 
-    // Emit to wall participants
-    io.to(`wall_${wallId}`).emit('new_wall_message', {
+    // Emit to wall participants - using 'message_received' to match client expectations
+    io.to(`wall_${wallId}`).emit('message_received', {
+      type: 'new_message',
       message: message.toObject(),
       wallId
     });
@@ -152,7 +153,7 @@ export const getWallMessages = async (req: Request, res: Response, next: NextFun
   }
 };
 
-// @desc    Like/Unlike message
+// @desc    Like/Unlike message (legacy - kept for backward compatibility)
 // @route   POST /api/messages/:id/like
 // @access  Private
 export const toggleMessageLike = async (req: Request, res: Response, next: NextFunction) => {
@@ -210,6 +211,70 @@ export const toggleMessageLike = async (req: Request, res: Response, next: NextF
   } catch (error: any) {
     console.error('Error toggling message like:', error);
     const errorMessage = error?.message || 'Failed to toggle message like';
+    next(new AppError(errorMessage, 400));
+  }
+};
+
+// @desc    Add/Remove reaction to message
+// @route   POST /api/messages/:id/react
+// @access  Private
+export const toggleMessageReaction = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const messageId = req.params.id;
+    const { emoji } = req.body;
+    const userId = req.user!.id;
+
+    if (!emoji || typeof emoji !== 'string') {
+      return next(new AppError('Emoji is required', 400));
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message || message.isDeleted) {
+      return next(new AppError('Message not found', 404));
+    }
+
+    // Toggle reaction
+    (message as any).toggleReaction(userId, emoji);
+    await message.save();
+
+    // Get user's current reaction
+    const userReaction = (message as any).getUserReaction(userId);
+
+    // Create notification for message author if adding reaction
+    if (userReaction && message.author.toString() !== userId) {
+      await (Notification as any).createLikeNotification(
+        message.author.toString(),
+        userId,
+        messageId
+      );
+    }
+
+    // Emit real-time update
+    io.to(`wall_${message.wall}`).emit('message_reaction_updated', {
+      messageId,
+      reactions: message.reactions,
+      userId,
+      userReaction
+    });
+
+    const response: ApiResponse<{ 
+      message: IMessage; 
+      userReaction: string | null;
+      reactions: any[];
+    }> = {
+      success: true,
+      data: { 
+        message, 
+        userReaction,
+        reactions: message.reactions || []
+      },
+      message: userReaction ? 'Reaction added' : 'Reaction removed'
+    };
+
+    res.status(200).json(response);
+  } catch (error: any) {
+    console.error('Error toggling message reaction:', error);
+    const errorMessage = error?.message || 'Failed to toggle message reaction';
     next(new AppError(errorMessage, 400));
   }
 };

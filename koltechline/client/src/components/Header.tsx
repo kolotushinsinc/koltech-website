@@ -1,10 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Zap, ChevronDown, LogOut, User, Settings, MessageSquare, Users, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useModalStore } from '../store/modalStore';
 
-const Header = () => {
+interface Wall {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  participants?: number;
+  [key: string]: any;
+}
+
+const Header = ({ 
+  activeWall = null, 
+  showWalls = false, 
+  setShowWalls = () => {}, 
+  wallsCount = 0,
+  selectedCategory = 'all',
+  setSelectedCategory = () => {},
+  categories = []
+}: { 
+  activeWall?: Wall | null,
+  showWalls?: boolean,
+  setShowWalls?: (show: boolean) => void,
+  wallsCount?: number,
+  selectedCategory?: string,
+  setSelectedCategory?: (category: string) => void,
+  categories?: Array<{id: string, name: string}>
+}) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
@@ -39,40 +64,62 @@ const Header = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-dark-900/90 backdrop-blur-md border-b border-dark-700">
-      <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-dark-900 border-b border-dark-700">
+      <div className="px-4">
+        <div className="flex items-center justify-between h-14 max-w-full">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
             <div className="p-2 bg-gradient-to-br from-primary-500 to-accent-purple rounded-lg">
               <Zap className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-white">KolTech</span>
+            <div className="flex items-center">
+              <span className="text-xl font-bold text-white">KolTechLine</span>
+              {activeWall && (
+                <div className="ml-4 pl-4 border-l border-dark-700 hidden sm:block">
+                  <span className="text-primary-400 font-medium">{activeWall.name}</span>
+                </div>
+              )}
+            </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => {
-              const IconComponent = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`text-sm font-medium transition-colors duration-200 flex items-center space-x-1 ${
-                    location.pathname === item.path
-                      ? 'text-primary-400'
-                      : 'text-gray-300 hover:text-white'
+          {/* Active Walls & Filters in Header */}
+          <nav className="hidden md:flex items-center space-x-4 flex-1 justify-center">
+            <div 
+              className="flex items-center space-x-2 cursor-pointer px-3 py-1 rounded-lg hover:bg-dark-700 transition-colors"
+              onClick={() => setShowWalls(!showWalls)}
+            >
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-400 text-sm">Live</span>
+              </div>
+              <span className="text-white text-sm font-medium">Active Walls</span>
+              {wallsCount > 0 && (
+                <span className="bg-primary-500/20 text-primary-400 text-xs px-2 py-0.5 rounded-full">
+                  {wallsCount}
+                </span>
+              )}
+            </div>
+            
+            {/* Quick category filters */}
+            <div className="flex items-center space-x-2">
+              {categories.map(category => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`px-3 py-1 rounded-lg text-xs transition-colors ${
+                    selectedCategory === category.id
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-dark-700 text-gray-400 hover:text-white'
                   }`}
                 >
-                  {IconComponent && <IconComponent className="w-4 h-4" />}
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+                  {category.name}
+                </button>
+              ))}
+            </div>
           </nav>
 
           {/* Auth Section */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-4 flex-shrink-0">
             {isAuthenticated && user ? (
               /* User Profile Dropdown */
               <div className="relative">

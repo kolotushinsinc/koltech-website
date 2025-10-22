@@ -107,7 +107,8 @@ export const useSocket = () => {
     if (!globalSocket) return;
 
     // Remove existing listeners to prevent duplicates
-    globalSocket.off('new_wall_message');
+    globalSocket.off('message_received'); // New unified event
+    globalSocket.off('new_wall_message'); // Legacy support
     globalSocket.off('new_message'); // For chat messages
     globalSocket.off('message_like_updated');
     globalSocket.off('new_comment');
@@ -116,8 +117,17 @@ export const useSocket = () => {
 
     // Add new listeners
     if (handlers.onMessageReceived) {
-      // Wall messages
-      globalSocket.on('new_wall_message', handlers.onMessageReceived);
+      // New unified message event (from server)
+      globalSocket.on('message_received', (data) => {
+        console.log('📨 Received message_received event:', data);
+        handlers.onMessageReceived!(data);
+      });
+      
+      // Legacy wall messages support
+      globalSocket.on('new_wall_message', (data) => {
+        console.log('📨 Received new_wall_message event (legacy):', data);
+        handlers.onMessageReceived!(data);
+      });
       
       // Chat messages
       globalSocket.on('new_message', (data) => {

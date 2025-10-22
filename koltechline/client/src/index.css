@@ -157,6 +157,16 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-primary-500;
   }
+  
+  /* Hide scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer utilities {

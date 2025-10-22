@@ -236,9 +236,16 @@ export const messageApi = {
       body: JSON.stringify(messageData),
     }),
 
-  // Like/unlike message
+  // Like/unlike message (legacy)
   toggleLike: (messageId: string) => 
     apiRequest(`/messages/${messageId}/like`, { method: 'POST' }),
+
+  // Add/remove reaction to message
+  toggleReaction: (messageId: string, emoji: string) =>
+    apiRequest(`/messages/${messageId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    }),
 
   // Add comment
   addComment: (messageId: string, content: string) => 

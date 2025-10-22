@@ -16,7 +16,8 @@ export interface IUser extends Document {
   location?: string;
   website?: string;
   skills?: string[];
-  role: 'startup' | 'freelancer' | 'investor' | 'universal' | 'admin';
+  // Удалено поле role, т.к. теперь роли хранятся в отдельной коллекции UserRoles
+  isAdmin: boolean;
   isEmailVerified: boolean;
   isActive: boolean;
   twoFactorEnabled?: boolean;
@@ -124,10 +125,9 @@ const userSchema = new Schema<IUser>({
     type: String,
     default: ''
   },
-  role: {
-    type: String,
-    enum: ['startup', 'freelancer', 'investor', 'universal', 'admin'],
-    default: 'startup'
+  isAdmin: {
+    type: Boolean,
+    default: false
   },
   isEmailVerified: {
     type: Boolean,
@@ -331,6 +331,26 @@ userSchema.statics.findByLogin = function(login: string) {
   }
   
   return this.findOne(query).select('+password +codePhrases');
+};
+
+// Виртуальное поле для связи с UserRoles
+userSchema.virtual('roles', {
+  ref: 'UserRoles',
+  localField: '_id',
+  foreignField: 'userId',
+  justOne: true
+});
+
+// Метод для проверки наличия роли
+userSchema.methods.hasRole = async function(role: string): Promise<boolean> {
+  await this.populate('roles');
+  return this.roles?.hasRole(role) || false;
+};
+
+// Метод для получения всех ролей пользователя
+userSchema.methods.getRoles = async function(): Promise<string[]> {
+  await this.populate('roles');
+  return this.roles?.activeRoles || [];
 };
 
 export default mongoose.model<IUser>('User', userSchema);

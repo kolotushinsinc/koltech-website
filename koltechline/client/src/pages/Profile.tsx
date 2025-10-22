@@ -123,7 +123,9 @@ const Profile = () => {
     return user.letteraTechNumber ? user.letteraTechNumber : (user.username || user.email);
   };
 
-  const getRoleColor = (role: string) => {
+  const getRoleColor = (role?: string) => {
+    if (!role) return 'text-primary-400';
+    
     switch (role) {
       case 'freelancer': return 'text-accent-green';
       case 'startup': return 'text-accent-purple';
@@ -184,7 +186,7 @@ const Profile = () => {
                         {user.letteraTechNumber ? `ID: ${user.letteraTechNumber}` : `@${getUsername()}`}
                       </p>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium bg-primary-500/20 ${getRoleColor(user.role)}`}>
-                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User'}
                       </span>
                     </div>
                   </div>

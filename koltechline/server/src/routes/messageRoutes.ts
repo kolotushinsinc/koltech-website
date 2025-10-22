@@ -4,6 +4,7 @@ import {
   createMessage,
   getWallMessages,
   toggleMessageLike,
+  toggleMessageReaction,
   addComment,
   getMessageComments,
   updateMessage,
@@ -73,6 +74,10 @@ const reportMessageSchema = Joi.object({
   reason: Joi.string().trim().min(1).max(500).required()
 });
 
+const reactionSchema = Joi.object({
+  emoji: Joi.string().trim().min(1).max(10).required()
+});
+
 const getCommentsSchema = Joi.object({
   limit: Joi.number().integer().min(1).max(50).default(10),
   page: Joi.number().integer().min(1).default(1)
@@ -106,6 +111,13 @@ router.post(
   '/:id/like',
   validateRequest(messageIdSchema, 'params'),
   toggleMessageLike
+);
+
+router.post(
+  '/:id/react',
+  validateRequest(messageIdSchema, 'params'),
+  validateRequest(reactionSchema),
+  toggleMessageReaction
 );
 
 router.post(

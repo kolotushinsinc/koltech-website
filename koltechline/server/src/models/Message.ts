@@ -8,6 +8,12 @@ export interface IAttachment {
   mimetype?: string;
 }
 
+export interface IReaction {
+  emoji: string;
+  users: mongoose.Schema.Types.ObjectId[];
+  count: number;
+}
+
 export interface IMessage extends Document {
   _id: string;
   content: string;
@@ -18,6 +24,7 @@ export interface IMessage extends Document {
   tags: string[];
   likes: mongoose.Schema.Types.ObjectId[];
   likesCount: number;
+  reactions: IReaction[];
   replies: mongoose.Schema.Types.ObjectId[];
   repliesCount: number;
   isEdited: boolean;
@@ -48,6 +55,21 @@ const attachmentSchema = new Schema<IAttachment>({
   filename: String,
   size: Number,
   mimetype: String
+}, { _id: false });
+
+const reactionSchema = new Schema<IReaction>({
+  emoji: {
+    type: String,
+    required: true
+  },
+  users: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  count: {
+    type: Number,
+    default: 0
+  }
 }, { _id: false });
 
 const messageSchema = new Schema<IMessage>({
@@ -87,6 +109,7 @@ const messageSchema = new Schema<IMessage>({
     type: Number,
     default: 0
   },
+  reactions: [reactionSchema],
   replies: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message'
@@ -224,6 +247,90 @@ messageSchema.methods.unpin = function() {
 messageSchema.methods.report = function() {
   this.isReported = true;
   this.reportCount += 1;
+};
+
+// Reaction methods
+messageSchema.methods.addReaction = function(userId: string, emoji: string) {
+  if (!this.reactions) {
+    this.reactions = [];
+  }
+  
+  // Find existing reaction for this emoji
+  let reaction = this.reactions.find((r: IReaction) => r.emoji === emoji);
+  
+  if (reaction) {
+    // Check if user already reacted with this emoji
+    const userIdStr = userId.toString();
+    const hasReacted = reaction.users.some((id: any) => id.toString() === userIdStr);
+    
+    if (!hasReacted) {
+      reaction.users.push(userId as any);
+      reaction.count = reaction.users.length;
+    }
+  } else {
+    // Create new reaction
+    this.reactions.push({
+      emoji,
+      users: [userId as any],
+      count: 1
+    });
+  }
+  
+  // Remove user from other reactions (user can only have one reaction per message)
+  this.reactions.forEach((r: IReaction) => {
+    if (r.emoji !== emoji) {
+      const userIdStr = userId.toString();
+      r.users = r.users.filter((id: any) => id.toString() !== userIdStr);
+      r.count = r.users.length;
+    }
+  });
+  
+  // Remove reactions with 0 users
+  this.reactions = this.reactions.filter((r: IReaction) => r.count > 0);
+};
+
+messageSchema.methods.removeReaction = function(userId: string, emoji: string) {
+  if (!this.reactions) {
+    return;
+  }
+  
+  const reaction = this.reactions.find((r: IReaction) => r.emoji === emoji);
+  
+  if (reaction) {
+    const userIdStr = userId.toString();
+    reaction.users = reaction.users.filter((id: any) => id.toString() !== userIdStr);
+    reaction.count = reaction.users.length;
+    
+    // Remove reaction if no users left
+    if (reaction.count === 0) {
+      this.reactions = this.reactions.filter((r: IReaction) => r.emoji !== emoji);
+    }
+  }
+};
+
+messageSchema.methods.getUserReaction = function(userId: string): string | null {
+  if (!this.reactions) {
+    return null;
+  }
+  
+  const userIdStr = userId.toString();
+  const reaction = this.reactions.find((r: IReaction) => 
+    r.users.some((id: any) => id.toString() === userIdStr)
+  );
+  
+  return reaction ? reaction.emoji : null;
+};
+
+messageSchema.methods.toggleReaction = function(userId: string, emoji: string) {
+  const currentReaction = this.getUserReaction(userId);
+  
+  if (currentReaction === emoji) {
+    // Remove reaction if clicking the same emoji
+    this.removeReaction(userId, emoji);
+  } else {
+    // Add new reaction (will automatically remove old one)
+    this.addReaction(userId, emoji);
+  }
 };
 
 // Static methods
