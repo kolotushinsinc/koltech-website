@@ -97,7 +97,8 @@ const KolTechLine = () => {
   } = useModalStore();
 
   // State management
-  const [walls, setWalls] = useState<Wall[]>([]);
+  const [walls, setWalls] = useState<Wall[]>([]); // Полный список всех стен
+  const [allWalls, setAllWalls] = useState<Wall[]>([]); // Кэш всех стен для поиска currentWall
   const [activeWall, setActiveWall] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -128,6 +129,7 @@ const KolTechLine = () => {
   const [showWalls, setShowWalls] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedParticipants, setSelectedParticipants] = useState('all');
+  const [lastOpenedWallsCategory, setLastOpenedWallsCategory] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showKolophonePanel, setShowKolophonePanel] = useState(false);
   const [activeCall, setActiveCall] = useState<any>(null);
@@ -224,12 +226,42 @@ const KolTechLine = () => {
     }
   }, [isConnected]); // Only depend on connection status
 
-  // Set active wall from URL parameter
+  // Set active wall from URL parameter and load it if not in cache
   useEffect(() => {
     if (wallId) {
       setActiveWall(wallId);
+      
+      // Если стены нет в кэше, загружаем её отдельно
+      if (!allWalls.find(w => w.id === wallId)) {
+        loadSingleWall(wallId);
+      }
     }
   }, [wallId]);
+  
+  // Load single wall info
+  const loadSingleWall = async (wallId: string) => {
+    try {
+      const response = await wallApi.getWalls({ limit: 50 }); // Load all to find the wall
+      const allWallsData = response.data.walls.map((wall: any) => ({
+        id: wall._id,
+        name: wall.name,
+        description: wall.description,
+        icon: getCategoryIcon(wall.category),
+        color: getCategoryColor(wall.category),
+        participants: wall.memberCount,
+        category: wall.category,
+        isActive: true,
+        isMember: user ? wall.members?.includes(user._id) : false,
+        isAdmin: user ? wall.admins?.includes(user._id) : false,
+        requiresApproval: wall.settings?.requireApproval || false
+      }));
+      
+      // Добавляем все стены в кэш
+      setAllWalls(allWallsData);
+    } catch (error) {
+      console.error('Error loading single wall:', error);
+    }
+  };
 
   // Load walls from API
   useEffect(() => {
@@ -280,8 +312,20 @@ const KolTechLine = () => {
       
       setWalls(wallsData);
       
-      // Don't auto-select any wall - user must choose manually
-      // This prevents resetting activeWall when filtering categories
+      // Сохраняем все стены в кэш при первой загрузке или при загрузке всех категорий
+      if (selectedCategory === 'all') {
+        setAllWalls(wallsData);
+      } else {
+        // При фильтрации добавляем новые стены в кэш, не удаляя старые
+        setAllWalls(prev => {
+          const newWalls = wallsData.filter((w: Wall) => !prev.find(p => p.id === w.id));
+          return [...prev, ...newWalls];
+        });
+      }
+      
+      // ВАЖНО: НЕ сбрасываем activeWall при фильтрации категорий
+      // activeWall управляется только через URL параметр wallId
+      // Это позволяет пользователю фильтровать стены, оставаясь на текущей стене
     } catch (error) {
       console.error('Error loading walls:', error);
     } finally {
@@ -425,8 +469,15 @@ const KolTechLine = () => {
       console.log('🏠 Attempting to join wall:', wallId);
       await wallApi.joinWall(wallId);
       
-      // Update wall membership status
+      // Update wall membership status in both walls and allWalls
       setWalls(prev => prev.map(wall =>
+        wall.id === wallId
+          ? { ...wall, isMember: true, participants: wall.participants + 1 }
+          : wall
+      ));
+      
+      // ВАЖНО: Также обновляем кэш allWalls для корректного отображения
+      setAllWalls(prev => prev.map(wall =>
         wall.id === wallId
           ? { ...wall, isMember: true, participants: wall.participants + 1 }
           : wall
@@ -453,8 +504,15 @@ const KolTechLine = () => {
     try {
       await wallApi.leaveWall(wallId);
       
-      // Update wall membership status
+      // Update wall membership status in both walls and allWalls
       setWalls(prev => prev.map(wall =>
+        wall.id === wallId
+          ? { ...wall, isMember: false, participants: Math.max(0, wall.participants - 1) }
+          : wall
+      ));
+      
+      // ВАЖНО: Также обновляем кэш allWalls для корректного отображения
+      setAllWalls(prev => prev.map(wall =>
         wall.id === wallId
           ? { ...wall, isMember: false, participants: Math.max(0, wall.participants - 1) }
           : wall
@@ -508,7 +566,9 @@ const KolTechLine = () => {
     }
 
     // Check if user is member of the wall
-    const currentWall = walls.find(w => w.id === activeWall);
+    // Находим текущую стену из ПОЛНОГО кэша стен (allWalls), а не из отфильтрованного списка (walls)
+  // Это гарантирует, что информация о стене всегда доступна, даже если она не входит в текущий фильтр категорий
+  const currentWall = allWalls.find(w => w.id === activeWall);
     if (currentWall && !currentWall.isMember) {
       console.log('❌ User is not a member of this wall');
       showWarning('🏠 You need to join this wall before posting. Click the "Join Wall" button in the header or sidebar.');
@@ -1209,7 +1269,9 @@ const KolTechLine = () => {
     setImageGalleryModal(null);
   };
 
-  const currentWall = walls.find(w => w.id === activeWall);
+  // Находим текущую стену из ПОЛНОГО кэша стен (allWalls), а не из отфильтрованного списка (walls)
+  // Это гарантирует, что информация о стене всегда доступна, даже если она не входит в текущий фильтр категорий
+  const currentWall = allWalls.find(w => w.id === activeWall);
 
   return (
     <>
@@ -1217,9 +1279,22 @@ const KolTechLine = () => {
         <Header 
           activeWall={currentWall} 
           showWalls={showWalls}
-          setShowWalls={setShowWalls}
-          wallsCount={walls.length}
-          loadingWalls={loadingWalls}
+          setShowWalls={(show) => {
+            // Когда открываем список стен, автоматически переключаемся на категорию текущей стены
+            if (show && currentWall && currentWall.category) {
+              setLastOpenedWallsCategory(currentWall.category);
+              setSelectedCategory(currentWall.category);
+            } else if (!show && lastOpenedWallsCategory) {
+              // Когда закрываем список стен, возвращаемся к категории которая была при открытии
+              setSelectedCategory(lastOpenedWallsCategory);
+              setLastOpenedWallsCategory(null);
+            }
+            setShowWalls(show);
+          }}
+          wallsCount={lastOpenedWallsCategory && !showWalls 
+            ? allWalls.filter(w => w.category === lastOpenedWallsCategory).length 
+            : walls.length}
+          loadingWalls={false}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
           categories={categories}
@@ -1367,7 +1442,11 @@ const KolTechLine = () => {
                       <button
                       key={wall.id}
                       onClick={() => {
-                        navigate(`/koltech-line/${wall.id}`);
+                        // Только переходим на стену если она не активна
+                        // Это предотвращает сброс состояния при просмотре списка стен
+                        if (activeWall !== wall.id) {
+                          navigate(`/koltech-line/${wall.id}`);
+                        }
                         setShowWalls(false);
                       }}
                       className={`p-3 rounded-xl border transition-all duration-200 group text-left relative hover:z-10 ${
@@ -1526,7 +1605,7 @@ const KolTechLine = () => {
             {/* Current Wall Header - Enhanced modern design */}
             <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 p-4 fixed left-0 right-0 lg:right-80 z-30 border-b border-dark-600 shadow-lg backdrop-blur-sm transition-all duration-300 ${showWalls ? 'top-[436px] blur-sm opacity-60 pointer-events-none' : 'top-16'}`}>
               <div className="container mx-auto">
-                {!activeWall || loading ? (
+                {!activeWall ? (
                   /* Header Skeleton */
                   <div className="flex items-center justify-between animate-pulse">
                     <div className="flex items-center space-x-4">
@@ -2324,7 +2403,7 @@ const KolTechLine = () => {
             {/* Sidebar - Wall Info - Fixed from top of page */}
             <div className="w-80 bg-dark-800 border-l border-dark-700 p-6 hidden lg:block fixed right-0 top-14 bottom-0 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937', paddingBottom: '120px' }}>
             <div className="space-y-6 pb-20">
-              {!activeWall || loading ? (
+              {!activeWall ? (
                 /* Sidebar Skeleton */
                 <>
                   {/* Wall Info Skeleton */}
