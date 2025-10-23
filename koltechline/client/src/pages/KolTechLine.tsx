@@ -131,6 +131,8 @@ const KolTechLine = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showKolophonePanel, setShowKolophonePanel] = useState(false);
   const [activeCall, setActiveCall] = useState<any>(null);
+  const [wallSearchQuery, setWallSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   
   // File upload
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -1233,26 +1235,36 @@ const KolTechLine = () => {
         )}
 
         {/* Walls list - Compact Modern Design */}
-        <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 transition-all duration-300 fixed top-16 left-0 right-0 lg:right-80 z-20 ${showWalls ? 'opacity-100 h-[350px] shadow-2xl shadow-dark-900/50' : 'opacity-0 h-0 overflow-hidden'}`}>
+        <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 transition-all duration-300 fixed top-16 left-0 right-0 lg:right-80 z-20 ${showWalls ? 'opacity-100 h-[370px] shadow-2xl shadow-dark-900/50' : 'opacity-0 h-0 overflow-hidden'}`}>
           <div className="container mx-auto px-4 py-3">
             {showWalls && (
               <div className="animate-fade-in">
                 {/* Header with Category Filters - Compact */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3 flex-1">
+                <div className="space-y-3 mb-3">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Users className="w-4 h-4 text-primary-400" />
                       <h3 className="text-white font-semibold text-sm">Available Walls</h3>
                       <span className="text-xs text-gray-400 bg-dark-600 px-2 py-0.5 rounded-full">{filteredWalls.length}</span>
                     </div>
                     
-                    {/* Category Filters */}
-                    <div className="flex items-center space-x-1.5 flex-1">
+                    <button
+                      onClick={() => setShowWalls(false)}
+                      className="text-gray-400 hover:text-white transition-all p-1.5 rounded-full hover:bg-dark-600 group"
+                    >
+                      <X className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+                    </button>
+                  </div>
+                  
+                  {/* Category Filters and Search */}
+                  <div className="flex items-center gap-2">
+                    {/* Category Filters - Hide when search is focused */}
+                    <div className={`flex items-center space-x-1.5 flex-1 overflow-x-auto scrollbar-hide transition-all duration-300 ${isSearchFocused ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'}`}>
                       {categories.map((category, index) => (
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategory(category.id)}
-                          className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all transform hover:scale-105 ${
+                          className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all transform hover:scale-105 whitespace-nowrap ${
                             selectedCategory === category.id
                               ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white shadow-lg shadow-primary-500/20'
                               : 'bg-dark-700/50 border border-dark-600 text-gray-400 hover:text-white hover:border-primary-500/50'
@@ -1265,18 +1277,36 @@ const KolTechLine = () => {
                         </button>
                       ))}
                     </div>
+                    
+                    {/* Search Input - Animated expansion */}
+                    <div className={`relative flex-shrink-0 transition-all duration-300 ${isSearchFocused ? 'w-full' : 'w-48'}`}>
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                      <input
+                        type="text"
+                        value={wallSearchQuery}
+                        onChange={(e) => setWallSearchQuery(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
+                        placeholder="Search walls..."
+                        className="w-full bg-dark-700/50 border border-dark-600 text-white placeholder-gray-500 pl-9 pr-3 py-1 rounded-xl text-xs focus:outline-none focus:border-primary-500/50 transition-all"
+                      />
+                      {wallSearchQuery && (
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault(); // Prevent blur
+                            setWallSearchQuery('');
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  
-                  <button
-                    onClick={() => setShowWalls(false)}
-                    className="text-gray-400 hover:text-white transition-all p-1.5 rounded-full hover:bg-dark-600 ml-2 group"
-                  >
-                    <X className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-                  </button>
                 </div>
                 
                 {/* Walls Grid - Compact Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-h-80 overflow-y-auto px-2 pt-4 pb-6" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937' }}>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-h-[320px] overflow-y-auto px-2 pt-2 pb-6" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937' }}>
                   {loadingWalls ? (
                     /* Wall Skeleton Loading */
                     Array(10).fill(0).map((_, i) => (
@@ -1494,7 +1524,7 @@ const KolTechLine = () => {
           {/* Messages Feed - With right padding to account for fixed sidebar */}
           <div className="flex-1 flex flex-col lg:pr-80">
             {/* Current Wall Header - Enhanced modern design */}
-            <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 p-4 fixed left-0 right-0 lg:right-80 z-30 border-b border-dark-600 shadow-lg backdrop-blur-sm transition-all duration-300 ${showWalls ? 'top-[366px] blur-sm opacity-60 pointer-events-none' : 'top-16'}`}>
+            <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 p-4 fixed left-0 right-0 lg:right-80 z-30 border-b border-dark-600 shadow-lg backdrop-blur-sm transition-all duration-300 ${showWalls ? 'top-[436px] blur-sm opacity-60 pointer-events-none' : 'top-16'}`}>
               <div className="container mx-auto">
                 {!activeWall || loading ? (
                   /* Header Skeleton */
@@ -1566,7 +1596,7 @@ const KolTechLine = () => {
             </div>
 
             {/* Messages */}
-            <div className={`flex-1 overflow-y-auto p-6 pb-40 container mx-auto relative transition-all duration-300 ${showWalls ? 'pt-[584px] blur-sm opacity-60 pointer-events-none' : 'pt-44'}`} onScroll={(e) => {
+            <div className={`flex-1 overflow-y-auto p-6 pb-40 container mx-auto relative transition-all duration-300 ${showWalls ? 'pt-[654px] blur-sm opacity-60 pointer-events-none' : 'pt-44'}`} onScroll={(e) => {
               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
               if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMoreMessages && !loadingMore) {
                 loadMoreMessages();
