@@ -156,7 +156,7 @@ const KolTechLine = () => {
   const { toasts, showSuccess, showError, showWarning, showInfo, removeToast } = useToast();
 
   // Socket.IO integration for real-time updates (without frequent reconnections)
-  const { joinWall, leaveWall, emitTyping, joinNotifications, subscribeToEvents, isConnected } = useSocket();
+  const { socket, joinWall, leaveWall, emitTyping, joinNotifications, subscribeToEvents, isConnected } = useSocket();
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -177,7 +177,7 @@ const KolTechLine = () => {
 
   // Subscribe to socket events only once
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && socket) {
       subscribeToEvents({
         // On message received
         onMessageReceived: (data: any) => {
@@ -185,12 +185,6 @@ const KolTechLine = () => {
             setMessages(prev => prev.map(msg =>
               msg.id === data.messageId
                 ? { ...msg, likes: data.likesCount, isLiked: data.likedBy === user?._id }
-                : msg
-            ));
-          } else if (data.type === 'new_comment') {
-            setMessages(prev => prev.map(msg =>
-              msg.id === data.parentMessageId
-                ? { ...msg, replies: msg.replies + 1 }
                 : msg
             ));
           } else if (data.message && data.wallId === activeWall) {
@@ -229,10 +223,58 @@ const KolTechLine = () => {
         }
       });
 
+      // Direct socket listeners for comments
+      const handleNewComment = (data: any) => {
+        console.log('📨 Direct new_comment event:', data);
+        // Update comment count
+        setMessages(prev => prev.map(msg =>
+          msg.id === data.parentMessageId
+            ? { ...msg, replies: msg.replies + 1 }
+            : msg
+        ));
+        
+        // If comments are expanded - reload them
+        if (expandedReplies.has(data.parentMessageId)) {
+          messageApi.getComments(data.parentMessageId).then(response => {
+            const commentTree = buildCommentTree(response.data.comments, data.parentMessageId);
+            setMessageReplies(prev => ({
+              ...prev,
+              [data.parentMessageId]: commentTree
+            }));
+          }).catch(console.error);
+        }
+      };
+
+      const handleMessageReactionUpdated = (data: any) => {
+        console.log('❤️ Direct message_reaction_updated event:', data);
+        setMessages(prev => prev.map(msg =>
+          msg.id === data.messageId
+            ? {
+                ...msg,
+                reactions: data.reactions.reduce((acc: any, r: any) => {
+                  acc[r.emoji] = { count: r.count, users: r.users };
+                  return acc;
+                }, {}),
+                userReaction: data.userReaction
+              }
+            : msg
+        ));
+      };
+
+      socket.on('new_comment', handleNewComment);
+      socket.on('nested_reply_added', handleNewComment);
+      socket.on('message_reaction_updated', handleMessageReactionUpdated);
+
       // Join notifications once when connected
       joinNotifications();
+
+      return () => {
+        socket.off('new_comment', handleNewComment);
+        socket.off('nested_reply_added', handleNewComment);
+        socket.off('message_reaction_updated', handleMessageReactionUpdated);
+      };
     }
-  }, [isConnected]); // Only depend on connection status
+  }, [isConnected, socket, expandedReplies]); // Depend on socket and expandedReplies
 
   // Set active wall from URL parameter and load it if not in cache
   useEffect(() => {
