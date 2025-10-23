@@ -28,7 +28,8 @@ import {
   Settings,
   UserPlus,
   Flag,
-  Pin
+  Pin,
+  X
 } from 'lucide-react';
 import Header from '../components/Header';
 import AuthModal from '../components/ui/AuthModal';
@@ -100,6 +101,7 @@ const KolTechLine = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingWalls, setLoadingWalls] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -142,6 +144,23 @@ const KolTechLine = () => {
 
   // Socket.IO integration for real-time updates (without frequent reconnections)
   const { joinWall, leaveWall, emitTyping, joinNotifications, subscribeToEvents, isConnected } = useSocket();
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Close message menu if clicking outside
+      if (messageMenuOpen && !target.closest('.message-menu-container')) {
+        setMessageMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [messageMenuOpen]);
 
   // Subscribe to socket events only once
   useEffect(() => {
@@ -224,6 +243,7 @@ const KolTechLine = () => {
   }, [activeWall, isConnected]);
 
   const loadWalls = async () => {
+    setLoadingWalls(true);
     try {
       const response = await wallApi.getWalls({
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
@@ -252,6 +272,8 @@ const KolTechLine = () => {
       }
     } catch (error) {
       console.error('Error loading walls:', error);
+    } finally {
+      setLoadingWalls(false);
     }
   };
 
@@ -1185,66 +1207,185 @@ const KolTechLine = () => {
           showWalls={showWalls}
           setShowWalls={setShowWalls}
           wallsCount={walls.length}
+          loadingWalls={loadingWalls}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
           categories={categories}
         />
         
         <div className="flex-1">
-        {/* Walls list - only shown when clicked, now controlled from header */}
-        <div className={`bg-dark-800 border-b border-dark-700 py-2 transition-all duration-300 ${showWalls ? 'opacity-100' : 'opacity-0 h-0 py-0 overflow-hidden'}`}>
-          <div className="container mx-auto">
-            
-            {/* Walls list - only shown when clicked */}
+        {/* Walls list - Compact Modern Design */}
+        <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 border-b border-dark-600 transition-all duration-300 fixed top-16 left-0 right-0 lg:right-80 z-20 ${showWalls ? 'opacity-100 h-[400px]' : 'opacity-0 h-0 overflow-hidden'}`}>
+          <div className="container mx-auto px-4 py-3">
             {showWalls && (
-              <div className="mt-4 space-y-4 animate-fade-in">
-                <h3 className="text-white font-medium">Available Walls</h3>
-                <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
-                  {filteredWalls.map((wall) => (
-                    <button
+              <div className="animate-fade-in">
+                {/* Header with Category Filters - Compact */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-3 flex-1">
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-4 h-4 text-primary-400" />
+                      <h3 className="text-white font-semibold text-sm">Available Walls</h3>
+                      <span className="text-xs text-gray-400 bg-dark-600 px-2 py-0.5 rounded-full">{filteredWalls.length}</span>
+                    </div>
+                    
+                    {/* Category Filters */}
+                    <div className="flex items-center space-x-1.5 flex-1">
+                      {categories.map((category, index) => (
+                        <button
+                          key={category.id}
+                          onClick={() => setSelectedCategory(category.id)}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all transform hover:scale-105 ${
+                            selectedCategory === category.id
+                              ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white shadow-lg shadow-primary-500/20'
+                              : 'bg-dark-700/50 border border-dark-600 text-gray-400 hover:text-white hover:border-primary-500/50'
+                          }`}
+                          style={{
+                            animationDelay: `${index * 30}ms`
+                          }}
+                        >
+                          {category.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => setShowWalls(false)}
+                    className="text-gray-400 hover:text-white transition-all p-1.5 rounded-full hover:bg-dark-600 ml-2 group"
+                  >
+                    <X className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+                  </button>
+                </div>
+                
+                {/* Walls Grid - Compact Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-h-80 overflow-y-auto px-2 pt-4 pb-6" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937' }}>
+                  {loadingWalls ? (
+                    /* Wall Skeleton Loading */
+                    Array(10).fill(0).map((_, i) => (
+                      <div
+                        key={i}
+                        className="p-3 rounded-xl border border-dark-600 bg-gradient-to-br from-dark-700 to-dark-800 animate-pulse"
+                        style={{ animationDelay: `${i * 50}ms` }}
+                      >
+                        {/* Icon & Name Skeleton */}
+                        <div className="flex items-center space-x-2 mb-2">
+                          <div className="p-1.5 rounded-lg bg-dark-600 w-7 h-7"></div>
+                          <div className="h-3 bg-dark-600 rounded w-20"></div>
+                        </div>
+                        
+                        {/* Description Skeleton */}
+                        <div className="space-y-1.5 mb-2">
+                          <div className="h-2 bg-dark-600 rounded w-full"></div>
+                          <div className="h-2 bg-dark-600 rounded w-5/6"></div>
+                        </div>
+                        
+                        {/* Stats Skeleton */}
+                        <div className="flex items-center justify-between pt-2 border-t border-dark-600/30">
+                          <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-dark-600 rounded-full"></div>
+                            <div className="h-2 bg-dark-600 rounded w-5"></div>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <div className="w-2 h-2 bg-dark-600 rounded-full"></div>
+                            <div className="h-2 bg-dark-600 rounded w-8"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : filteredWalls.length === 0 ? (
+                    /* No Walls Found */
+                    <div className="col-span-full flex flex-col items-center justify-center py-12 px-4">
+                      <div className="w-16 h-16 bg-dark-600/50 rounded-full flex items-center justify-center mb-4">
+                        <Users className="w-8 h-8 text-gray-500" />
+                      </div>
+                      <h3 className="text-white font-semibold text-lg mb-2">No Walls Found</h3>
+                      <p className="text-gray-400 text-sm text-center max-w-md mb-4">
+                        {selectedCategory === 'all' 
+                          ? 'There are no walls available at the moment.'
+                          : `No walls found in the "${categories.find(c => c.id === selectedCategory)?.name}" category.`
+                        }
+                      </p>
+                      {selectedCategory !== 'all' && (
+                        <button
+                          onClick={() => setSelectedCategory('all')}
+                          className="text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors"
+                        >
+                          View all categories
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    filteredWalls.map((wall, index) => (
+                      <button
                       key={wall.id}
                       onClick={() => {
                         setActiveWall(wall.id);
                         setShowWalls(false);
                       }}
-                      className={`flex-shrink-0 p-4 rounded-xl border transition-all duration-300 min-w-[200px] ${
+                      className={`p-3 rounded-xl border transition-all duration-200 group text-left relative hover:z-10 ${
                         activeWall === wall.id
-                          ? 'bg-gradient-to-r ' + wall.color + ' border-transparent text-white'
-                          : 'bg-dark-700 border-dark-600 text-gray-300 hover:border-gray-500'
+                          ? 'bg-gradient-to-br ' + wall.color + ' border-transparent text-white shadow-lg scale-[1.02]'
+                          : 'bg-gradient-to-br from-dark-700 to-dark-800 border-dark-600 text-gray-300 hover:border-primary-500/50 hover:shadow-md hover:scale-[1.02]'
                       }`}
+                      style={{
+                        animationDelay: `${index * 30}ms`
+                      }}
                     >
-                      <div className="flex items-center space-x-3 mb-2">
-                        {wall.icon && <wall.icon className="w-5 h-5" />}
-                        <span className="font-medium">{wall.name}</span>
+                      {/* Icon & Name */}
+                      <div className="flex items-center space-x-2 mb-2">
+                        <div className={`p-1.5 rounded-lg ${activeWall === wall.id ? 'bg-white/20' : 'bg-gradient-to-r ' + wall.color}`}>
+                          {wall.icon && <wall.icon className="w-3.5 h-3.5" />}
+                        </div>
+                        <span className="font-semibold text-xs truncate flex-1">{wall.name}</span>
                       </div>
-                      <p className="text-xs opacity-80 text-left">{wall.description}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs opacity-60">{wall.participants} members</span>
-                        <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
+                      
+                      {/* Description */}
+                      <p className={`text-xs mb-2 line-clamp-2 leading-tight ${activeWall === wall.id ? 'opacity-90' : 'opacity-70'}`}>
+                        {wall.description}
+                      </p>
+                      
+                      {/* Stats */}
+                      <div className="flex items-center justify-between pt-2 border-t border-current/10">
+                        <div className="flex items-center space-x-1">
+                          <Users className="w-3 h-3 opacity-70" />
+                          <span className="text-xs font-medium">{wall.participants}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs opacity-70">Live</span>
+                        </div>
                       </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Filters - Only show when there are active tags or filters are expanded */}
+        {/* Filters - Enhanced modern design */}
         {(selectedTags.length > 0 || showFilters) && (
-          <div className="bg-dark-800 border-b border-dark-700 py-2">
-            <div className="container mx-auto">
+          <div className="bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 border-b border-dark-600 py-3">
+            <div className="container mx-auto px-4">
               {/* Active tags */}
               {selectedTags.length > 0 && (
-                <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide">
-                  <span className="text-gray-400 text-sm">Tags:</span>
-                  {selectedTags.map(tag => (
+                <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide pb-2">
+                  <div className="flex items-center space-x-2 bg-dark-700/50 px-3 py-1.5 rounded-xl border border-dark-600">
+                    <Hash className="w-4 h-4 text-primary-400" />
+                    <span className="text-gray-400 text-sm font-medium">Active:</span>
+                  </div>
+                  {selectedTags.map((tag, index) => (
                     <span
                       key={tag}
                       onClick={() => toggleTag(tag)}
-                      className="bg-accent-purple text-white px-2 py-1 rounded text-xs cursor-pointer hover:bg-accent-purple/80"
+                      className="bg-gradient-to-r from-accent-purple to-primary-500 text-white px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer hover:shadow-lg hover:shadow-accent-purple/30 transition-all flex items-center space-x-1 group"
+                      style={{
+                        animationDelay: `${index * 50}ms`
+                      }}
                     >
-                      #{tag} ×
+                      <span>#{tag}</span>
+                      <span className="group-hover:scale-125 transition-transform">×</span>
                     </span>
                   ))}
                 </div>
@@ -1252,22 +1393,25 @@ const KolTechLine = () => {
 
               {/* Extended filters */}
               {showFilters && (
-                <div className="mt-4 p-4 bg-dark-700 rounded-xl border border-dark-600">
+                <div className="mt-4 p-5 bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl border border-dark-600 shadow-xl">
                   <div className="grid md:grid-cols-3 gap-6">
                     {/* Categories */}
                     <div>
-                      <h4 className="text-white font-medium mb-3">Categories</h4>
+                      <h4 className="text-white font-bold mb-4 flex items-center space-x-2">
+                        <Filter className="w-4 h-4 text-primary-400" />
+                        <span>Categories</span>
+                      </h4>
                       <div className="space-y-2">
                         {categories.map(category => (
-                          <label key={category.id} className="flex items-center space-x-2">
+                          <label key={category.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-dark-600/50 transition-colors cursor-pointer group">
                             <input
                               type="radio"
                               name="category"
                               checked={selectedCategory === category.id}
                               onChange={() => setSelectedCategory(category.id)}
-                              className="text-primary-500"
+                              className="text-primary-500 w-4 h-4"
                             />
-                            <span className="text-gray-300 text-sm">{category.name}</span>
+                            <span className="text-gray-300 text-sm group-hover:text-white transition-colors">{category.name}</span>
                           </label>
                         ))}
                       </div>
@@ -1275,18 +1419,21 @@ const KolTechLine = () => {
 
                     {/* Participants */}
                     <div>
-                      <h4 className="text-white font-medium mb-3">Wall Size</h4>
+                      <h4 className="text-white font-bold mb-4 flex items-center space-x-2">
+                        <Users className="w-4 h-4 text-accent-purple" />
+                        <span>Wall Size</span>
+                      </h4>
                       <div className="space-y-2">
                         {participantRanges.map(range => (
-                          <label key={range.id} className="flex items-center space-x-2">
+                          <label key={range.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-dark-600/50 transition-colors cursor-pointer group">
                             <input
                               type="radio"
                               name="participants"
                               checked={selectedParticipants === range.id}
                               onChange={() => setSelectedParticipants(range.id)}
-                              className="text-primary-500"
+                              className="text-primary-500 w-4 h-4"
                             />
-                            <span className="text-gray-300 text-sm">{range.name}</span>
+                            <span className="text-gray-300 text-sm group-hover:text-white transition-colors">{range.name}</span>
                           </label>
                         ))}
                       </div>
@@ -1294,17 +1441,23 @@ const KolTechLine = () => {
 
                     {/* Tags */}
                     <div>
-                      <h4 className="text-white font-medium mb-3">Popular Tags</h4>
+                      <h4 className="text-white font-bold mb-4 flex items-center space-x-2">
+                        <Hash className="w-4 h-4 text-green-400" />
+                        <span>Popular Tags</span>
+                      </h4>
                       <div className="flex flex-wrap gap-2">
-                        {popularTags.map(tag => (
+                        {popularTags.map((tag, index) => (
                           <button
                             key={tag}
                             onClick={() => toggleTag(tag)}
-                            className={`px-2 py-1 rounded text-xs transition-colors ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all transform hover:scale-105 ${
                               selectedTags.includes(tag)
-                                ? 'bg-accent-purple text-white'
-                                : 'bg-dark-600 text-gray-400 hover:text-white'
+                                ? 'bg-gradient-to-r from-accent-purple to-primary-500 text-white shadow-lg'
+                                : 'bg-dark-600 text-gray-400 hover:text-white hover:bg-dark-500 border border-dark-500'
                             }`}
+                            style={{
+                              animationDelay: `${index * 30}ms`
+                            }}
                           >
                             #{tag}
                           </button>
@@ -1322,50 +1475,80 @@ const KolTechLine = () => {
         <div className="flex-1 flex w-full">
           {/* Messages Feed - With right padding to account for fixed sidebar */}
           <div className="flex-1 flex flex-col lg:pr-80">
-            {/* Current Wall Header - Fixed position below main header */}
-            <div className="bg-dark-800 p-4 fixed top-14 left-0 right-0 lg:right-80 z-30 border-b border-dark-700">
+            {/* Current Wall Header - Enhanced modern design */}
+            <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 p-4 fixed left-0 right-0 lg:right-80 z-30 border-b border-dark-600 shadow-lg backdrop-blur-sm transition-all duration-300 ${showWalls ? 'top-[416px]' : 'top-16'}`}>
               <div className="container mx-auto">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 bg-gradient-to-r ${currentWall?.color} rounded-lg`}>
-                      {currentWall?.icon && <currentWall.icon className="w-5 h-5 text-white" />}
+                {loading ? (
+                  /* Header Skeleton */
+                  <div className="flex items-center justify-between animate-pulse">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-dark-600 rounded-xl"></div>
+                      <div>
+                        <div className="h-3 bg-dark-600 rounded w-48 mb-2"></div>
+                        <div className="flex items-center space-x-3">
+                          <div className="h-2 bg-dark-600 rounded w-20"></div>
+                          <div className="h-2 bg-dark-600 rounded w-16"></div>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-gray-400 text-sm truncate max-w-md">{currentWall?.description}</p>
+                    <div className="flex items-center space-x-2">
+                      <div className="h-9 bg-dark-600 rounded-xl w-20"></div>
+                      <div className="h-9 w-9 bg-dark-600 rounded-xl"></div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    {isLoggedIn() && currentWall && !currentWall.isMember ? (
-                      <button
-                        onClick={() => handleJoinWall(currentWall.id)}
-                        className="flex items-center space-x-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1 rounded-lg hover:shadow-lg transition-all text-sm"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Join</span>
-                      </button>
-                    ) : (
-                      isLoggedIn() && currentWall && currentWall.isMember && (
-                        <button
-                          onClick={handleStartKolophone}
-                          className="flex items-center space-x-1 bg-gradient-to-r from-primary-500 to-accent-purple text-white px-3 py-1 rounded-lg hover:shadow-lg transition-all text-sm"
-                        >
-                          <PhoneCall className="w-4 h-4" />
-                          <span>Call</span>
-                        </button>
-                      )
-                    )}
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-3 bg-gradient-to-r ${currentWall?.color} rounded-xl shadow-lg`}>
+                        {currentWall?.icon && <currentWall.icon className="w-6 h-6 text-white" />}
+                      </div>
+                      <div>
+                        <p className="text-gray-300 text-sm truncate max-w-md font-medium">{currentWall?.description}</p>
+                        <div className="flex items-center space-x-3 mt-1">
+                          <div className="flex items-center space-x-1">
+                            <Users className="w-3 h-3 text-primary-400" />
+                            <span className="text-xs text-gray-400">{currentWall?.participants} members</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-green-400">Active</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                     
-                    <button className="p-2 bg-dark-700 text-gray-400 rounded-lg hover:text-white transition-colors">
-                      <Search className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      {isLoggedIn() && currentWall && !currentWall.isMember ? (
+                        <button
+                          onClick={() => handleJoinWall(currentWall.id)}
+                          className="flex items-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-xl hover:shadow-lg hover:shadow-green-500/30 transition-all text-sm font-medium group"
+                        >
+                          <UserPlus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                          <span>Join</span>
+                        </button>
+                      ) : (
+                        isLoggedIn() && currentWall && currentWall.isMember && (
+                          <button
+                            onClick={handleStartKolophone}
+                            className="flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-accent-purple text-white px-4 py-2 rounded-xl hover:shadow-lg hover:shadow-primary-500/30 transition-all text-sm font-medium group"
+                          >
+                            <PhoneCall className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            <span>Call</span>
+                          </button>
+                        )
+                      )}
+                      
+                      <button className="p-2.5 bg-dark-700/50 border border-dark-600 text-gray-400 rounded-xl hover:text-white hover:border-primary-500/50 transition-all">
+                        <Search className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 pb-32 pt-32 container mx-auto relative" onScroll={(e) => {
+            <div className={`flex-1 overflow-y-auto p-6 pb-40 container mx-auto relative transition-all duration-300 ${showWalls ? 'pt-[634px]' : 'pt-44'}`} onScroll={(e) => {
               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
               if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMoreMessages && !loadingMore) {
                 loadMoreMessages();
@@ -1380,8 +1563,48 @@ const KolTechLine = () => {
 
               <div className="max-w-3xl mx-auto space-y-6 relative z-10">
                 {loading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                  /* Skeleton Loading */
+                  <div className="space-y-6">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className="rounded-2xl p-4 bg-gradient-to-br from-dark-800 to-dark-700 border border-dark-600 shadow-lg animate-pulse"
+                        style={{ animationDelay: `${i * 100}ms` }}
+                      >
+                        {/* Header Skeleton */}
+                        <div className="flex items-start space-x-3 mb-2">
+                          {/* Avatar Skeleton */}
+                          <div className="w-9 h-9 rounded-full bg-dark-600"></div>
+                          
+                          <div className="flex-1 min-w-0">
+                            {/* Name and Time Skeleton */}
+                            <div className="flex items-center space-x-2 mb-2">
+                              <div className="h-3 bg-dark-600 rounded w-24"></div>
+                              <div className="h-2 bg-dark-600 rounded w-12"></div>
+                            </div>
+                            
+                            {/* Content Skeleton */}
+                            <div className="space-y-2">
+                              <div className="h-3 bg-dark-600 rounded w-full"></div>
+                              <div className="h-3 bg-dark-600 rounded w-5/6"></div>
+                              <div className="h-3 bg-dark-600 rounded w-4/6"></div>
+                            </div>
+                            
+                            {/* Tags Skeleton */}
+                            <div className="flex gap-1.5 mt-2">
+                              <div className="h-5 bg-dark-600 rounded w-16"></div>
+                              <div className="h-5 bg-dark-600 rounded w-20"></div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Reactions Skeleton */}
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <div className="h-6 bg-dark-600 rounded-full w-12"></div>
+                          <div className="h-6 bg-dark-600 rounded-full w-12"></div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   messages.map((message) => {
@@ -1389,54 +1612,44 @@ const KolTechLine = () => {
                     return (
                     <div
                       key={message.id}
-                      className={`group relative rounded-2xl p-6 transition-all duration-300 ${
+                      className={`group relative rounded-2xl p-4 transition-all duration-200 shadow-lg hover:shadow-xl ${
                         isOwnMessage
-                          ? 'bg-gradient-to-br from-primary-500/10 to-accent-purple/10 border border-primary-500/30 hover:border-primary-500/50'
-                          : 'bg-dark-800 border border-dark-700 hover:border-dark-600'
+                          ? 'bg-gradient-to-br from-primary-500/15 to-accent-purple/15 border border-primary-500/40 hover:border-primary-500/60 hover:shadow-primary-500/20'
+                          : 'bg-gradient-to-br from-dark-800 to-dark-700 border border-dark-600 hover:border-primary-500/30 hover:shadow-dark-900/50'
                       }`}
                       onMouseEnter={() => setShowReactionPicker(message.id)}
                       onMouseLeave={() => setShowReactionPicker(null)}
                     >
-                    {/* Message Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <Link to={`/user/${message.userId}`} className="group/avatar">
-                          <img
-                            src={message.avatar}
-                            alt={message.username}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-transparent group-hover/avatar:border-primary-500/50 transition-colors"
-                          />
-                        </Link>
-                        
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <Link
-                              to={`/user/${message.userId}`}
-                              className="group"
-                            >
-                              <h3 className="text-white font-medium group-hover:text-primary-400 group-hover:underline transition-all cursor-pointer">
-                                {message.username}
-                              </h3>
-                            </Link>
-                            {message.isEdited && (
-                              <span className="text-xs text-gray-500 bg-dark-600 px-2 py-0.5 rounded">
-                                edited
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-gray-400 text-sm">
+                    {/* Message Header - Compact */}
+                    <div className="flex items-start space-x-3 mb-2">
+                      <Link to={`/user/${message.userId}`} className="flex-shrink-0">
+                        <img
+                          src={message.avatar}
+                          alt={message.username}
+                          className="w-9 h-9 rounded-full object-cover border-2 border-transparent hover:border-primary-500/50 transition-colors"
+                        />
+                      </Link>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Link to={`/user/${message.userId}`} className="group">
+                            <h3 className="text-white font-medium text-sm group-hover:text-primary-400 transition-colors">
+                              {message.username}
+                            </h3>
+                          </Link>
+                          <span className="text-gray-500 text-xs">
                             {formatTime(message.timestamp)}
-                            {message.isEdited && message.editedAt && (
-                              <span className="ml-1">• edited {formatTime(message.editedAt)}</span>
-                            )}
-                          </p>
+                          </span>
+                          {message.isEdited && (
+                            <span className="text-xs text-gray-500">edited</span>
+                          )}
+                          {message.isPinned && (
+                            <Pin className="w-3 h-3 text-primary-400" />
+                          )}
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Message Content */}
-                    <div className="mb-4">
-                      <p className="text-gray-300 leading-relaxed">{message.content}</p>
+                        {/* Message Content */}
+                        <p className="text-gray-300 leading-relaxed text-sm">{message.content}</p>
                       
                       {/* Attachments */}
                       {message.attachments && message.attachments.length > 0 && (
@@ -1486,44 +1699,44 @@ const KolTechLine = () => {
                         </div>
                       )}
 
-                      {/* Tags */}
-                      {message.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-4">
-                          {message.tags.map(tag => (
-                            <span
-                              key={tag}
-                              className="bg-dark-700 text-gray-400 px-2 py-1 rounded text-xs hover:bg-primary-500 hover:text-white transition-colors cursor-pointer"
-                            >
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                        {/* Tags */}
+                        {message.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {message.tags.map(tag => (
+                              <span
+                                key={tag}
+                                className="bg-dark-700 text-gray-400 px-2 py-0.5 rounded text-xs hover:bg-primary-500 hover:text-white transition-colors cursor-pointer"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Compact Message Footer - Reaction counters and picker */}
-                    <div className="relative">
+                    {/* Compact Message Footer - Reaction counters */}
+                    <div className="relative mt-2">
                       {/* Show counters only if there are reactions or replies */}
                       {((message.reactions && Object.keys(message.reactions).length > 0) || message.replies > 0) && (
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           {message.reactions && Object.entries(message.reactions).map(([emoji, data]) => (
                             <div 
                               key={emoji}
-                              className="flex items-center bg-dark-700/50 rounded-full px-2 py-1 cursor-pointer hover:bg-dark-700 transition-colors"
+                              className="flex items-center bg-dark-700/50 rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-dark-700 transition-colors text-xs"
                               onClick={() => setShowReactionPicker(showReactionPicker === message.id ? null : message.id)}
                             >
-                              <span className="text-sm">{emoji}</span>
-                              <span className="text-xs text-gray-400 ml-1">{data.count}</span>
+                              <span>{emoji}</span>
+                              <span className="text-gray-400 ml-1">{data.count}</span>
                             </div>
                           ))}
                           {message.replies > 0 && (
                             <button
                               onClick={() => toggleReplies(message.id)}
-                              className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1"
+                              className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1 px-1.5"
                             >
                               <MessageCircle className="w-3 h-3" />
-                              <span>{message.replies} {message.replies === 1 ? 'reply' : 'replies'}</span>
-                              <span className="text-gray-500">{expandedReplies.has(message.id) ? '▼' : '▶'}</span>
+                              <span>{message.replies}</span>
                             </button>
                           )}
                         </div>
@@ -1572,9 +1785,9 @@ const KolTechLine = () => {
                         </div>
                       )}
                       
-                      {/* Reaction Picker - показывается при наведении на сообщение или клике на реакции */}
+                      {/* Reaction Picker - компактный */}
                       {showReactionPicker === message.id && (
-                          <div className="absolute left-0 top-full mt-2 bg-dark-700 border border-dark-600 rounded-full px-3 py-2 shadow-xl flex items-center gap-2 animate-scale-in z-50">
+                          <div className="absolute left-0 top-full mt-1 bg-dark-700 border border-dark-600 rounded-full px-2 py-1.5 shadow-xl flex items-center gap-1 animate-scale-in z-50 reaction-picker-container">
                             {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
                               <button
                                 key={emoji}
@@ -1678,8 +1891,8 @@ const KolTechLine = () => {
                                     showError('❌ Failed to update reaction. Please try again.');
                                   }
                                 }}
-                                className={`text-2xl hover:scale-125 transition-transform ${
-                                  message.userReaction === emoji ? 'scale-110 drop-shadow-lg' : ''
+                                className={`text-lg hover:scale-110 transition-transform p-1 ${
+                                  message.userReaction === emoji ? 'scale-105' : ''
                                 }`}
                                 title={emoji}
                               >
@@ -1690,104 +1903,105 @@ const KolTechLine = () => {
                         )}
                     </div>
                     
-                    {/* Hover Actions - Compact like messenger */}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-dark-700/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-lg z-50">
-                      {/* Three Dots Menu */}
-                      <div className="relative z-50">
-                        <button
-                          onClick={() => setMessageMenuOpen(messageMenuOpen === message.id ? null : message.id)}
-                          className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-dark-600"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                        
-                        {/* Dropdown Menu */}
-                        {messageMenuOpen === message.id && (
-                          <div className="absolute right-0 top-full mt-2 w-48 bg-dark-700 border border-dark-600 rounded-lg shadow-xl z-[100] animate-fade-in">
-                            <button
-                              onClick={() => {
-                                handleComment(message.id);
-                                setMessageMenuOpen(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 rounded-t-lg"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                              <span>Reply</span>
-                            </button>
-                            
-                            {isLoggedIn() && message.userId === user?._id && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    handleEditMessage(message);
-                                    setMessageMenuOpen(null);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2"
-                                >
-                                  <Settings className="w-4 h-4" />
-                                  <span>Edit</span>
-                                </button>
-                                
-                                <button
-                                  onClick={() => {
-                                    handleDeleteMessage(message.id);
-                                    setMessageMenuOpen(null);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2"
-                                >
-                                  <Flag className="w-4 h-4" />
-                                  <span>Delete</span>
-                                </button>
-                              </>
-                            )}
-                            
-                            {isLoggedIn() && message.userId !== user?._id && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    handleStartPrivateChat(message.userId);
-                                    setMessageMenuOpen(null);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2"
-                                >
-                                  <Phone className="w-4 h-4" />
-                                  <span>Message</span>
-                                </button>
-                                
-                                <button
-                                  onClick={() => {
-                                    handleAddContact(message.userId);
-                                    setMessageMenuOpen(null);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2"
-                                >
-                                  <UserPlus className="w-4 h-4" />
-                                  <span>Add Contact</span>
-                                </button>
-                                
-                                <button
-                                  onClick={() => {
-                                    handleReport(message.id);
-                                    setMessageMenuOpen(null);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 rounded-b-lg"
-                                >
-                                  <Flag className="w-4 h-4" />
-                                  <span>Report</span>
-                                </button>
-                              </>
-                            )}
-                            
-                            <button
-                              onClick={() => setMessageMenuOpen(null)}
-                              className="w-full text-left px-4 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 rounded-b-lg"
-                            >
-                              <Share2 className="w-4 h-4" />
-                              <span>Share</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                    {/* Hover Actions - Compact */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity message-menu-container">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMessageMenuOpen(messageMenuOpen === message.id ? null : message.id);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-dark-700"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {messageMenuOpen === message.id && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-dark-700 border border-dark-600 rounded-xl shadow-2xl z-[100] overflow-hidden message-menu-container">
+                          <button
+                            onClick={() => {
+                              handleComment(message.id);
+                              setMessageMenuOpen(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            <span>Reply</span>
+                          </button>
+                          
+                          {isLoggedIn() && message.userId === user?._id && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  handleEditMessage(message);
+                                  setMessageMenuOpen(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <Settings className="w-4 h-4" />
+                                <span>Edit</span>
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  handleDeleteMessage(message.id);
+                                  setMessageMenuOpen(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <Flag className="w-4 h-4" />
+                                <span>Delete</span>
+                              </button>
+                            </>
+                          )}
+                          
+                          {isLoggedIn() && message.userId !== user?._id && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  handleStartPrivateChat(message.userId);
+                                  setMessageMenuOpen(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <Phone className="w-4 h-4" />
+                                <span>Message</span>
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  handleAddContact(message.userId);
+                                  setMessageMenuOpen(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <UserPlus className="w-4 h-4" />
+                                <span>Add Contact</span>
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  handleReport(message.id);
+                                  setMessageMenuOpen(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <Flag className="w-4 h-4" />
+                                <span>Report</span>
+                              </button>
+                            </>
+                          )}
+                          
+                          <div className="border-t border-dark-600"></div>
+                          <button
+                            onClick={() => setMessageMenuOpen(null)}
+                            className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                          >
+                            <Share2 className="w-4 h-4" />
+                            <span>Share</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                     </div>
                     );
@@ -1826,56 +2040,53 @@ const KolTechLine = () => {
               </div>
             </div>
 
-            {/* Message Input - Fixed at bottom of screen with full width up to sidebar */}
-            <div className="bg-dark-800 border-t border-dark-700 fixed bottom-0 left-0 right-0 lg:right-80 z-10">
-              <div className="py-3 px-4">
+            {/* Message Input - Modern Telegram-style */}
+            <div className="bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 border-t border-dark-600 fixed bottom-0 left-0 right-0 lg:right-80 z-10 shadow-2xl">
+              <div className="py-2 px-4">
                 <div className="container mx-auto">
                 <div
-                  className={`bg-dark-700 border border-dark-600 rounded-2xl p-4 transition-all ${
-                    isDragging ? 'border-primary-500 bg-primary-500/5' : ''
+                  className={`bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl p-2 border transition-all shadow-lg ${
+                    isDragging ? 'border-primary-500 bg-primary-500/5 shadow-primary-500/30' : 'border-dark-600'
                   }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                 >
                   {isDragging && (
-                    <div className="absolute inset-0 bg-primary-500/20 border-2 border-primary-500 border-dashed rounded-2xl flex items-center justify-center z-10">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary-500/20 to-accent-purple/20 border-2 border-primary-500 border-dashed rounded-2xl flex items-center justify-center z-10 backdrop-blur-sm">
                       <div className="text-center">
-                        <Image className="w-12 h-12 text-primary-400 mx-auto mb-2" />
-                        <p className="text-primary-400 font-medium">Drop your files here</p>
-                        <p className="text-gray-400 text-sm">Images and videos supported (max 15)</p>
+                        <Image className="w-8 h-8 text-primary-400 mx-auto mb-1" />
+                        <p className="text-primary-400 text-sm font-medium">Drop files here</p>
                       </div>
                     </div>
                   )}
                   
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
                     <div className="flex-1">
                       <textarea
                         ref={textareaRef}
                         value={newMessage}
                         onChange={(e) => {
                           handleInputChange(e);
-                          // Auto-resize textarea with max height of 100px
+                          // Auto-resize textarea with max height of 80px
                           const target = e.target;
                           target.style.height = 'auto';
-                          target.style.height = Math.min(target.scrollHeight, 100) + 'px';
+                          target.style.height = Math.min(target.scrollHeight, 80) + 'px';
                         }}
                         onKeyDown={handleKeyPress}
                         placeholder={
-                          editingMessage ? 'Edit your message...' :
+                          editingMessage ? 'Edit message...' :
                           replyingTo ? `Reply to ${replyingTo.username}...` :
-                          `Share something in ${currentWall?.name}...`
+                          `Message ${currentWall?.name}...`
                         }
-                        className="w-full bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none min-h-[44px] max-h-[100px] overflow-y-auto scrollbar-hide rounded-xl p-2"
+                        className="w-full bg-gradient-to-br from-dark-600 to-dark-700 border border-dark-500 text-white placeholder-gray-500 resize-none focus:outline-none focus:border-primary-500/50 min-h-[36px] max-h-[80px] overflow-y-auto scrollbar-hide rounded-xl px-3 py-2 text-sm transition-all"
                         style={{
-                          height: '44px',
-                          backdropFilter: 'blur(8px)',
-                          background: 'rgba(255, 255, 255, 0.05)'
+                          height: '36px'
                         }}
                       />
                     </div>
                     
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1">
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -1888,60 +2099,52 @@ const KolTechLine = () => {
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={selectedFiles.length >= 15}
-                        className={`p-2 rounded-lg transition-colors ${
+                        className={`p-1.5 rounded-xl transition-all ${
                           selectedFiles.length >= 15
                             ? 'text-gray-600 cursor-not-allowed'
-                            : 'text-gray-400 hover:text-white hover:bg-dark-600'
+                            : 'text-gray-400 hover:text-white hover:bg-dark-600 border border-transparent hover:border-dark-500'
                         }`}
-                        title={selectedFiles.length >= 15 ? 'Maximum files reached' : 'Upload Images/Videos (or drag & drop)'}
+                        title={selectedFiles.length >= 15 ? 'Max files' : 'Attach'}
                       >
-                        <Image className="w-5 h-5" />
-                      </button>
-                      
-                      <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-600 rounded-lg transition-colors">
-                        <Smile className="w-5 h-5" />
-                      </button>
-                      
-                      <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-600 rounded-lg transition-colors">
-                        <Hash className="w-5 h-5" />
+                        <Paperclip className="w-4 h-4" />
                       </button>
                       
                       <button
                         onClick={handleSendMessage}
                         disabled={(!newMessage.trim() && selectedFiles.length === 0) || sendingMessage}
-                        className={`p-3 rounded-xl transition-all duration-300 flex items-center space-x-2 ${
+                        className={`p-2 rounded-xl transition-all ${
                           (newMessage.trim() || selectedFiles.length > 0) && !sendingMessage
-                            ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white hover:shadow-lg'
+                            ? 'bg-gradient-to-r from-primary-500 to-accent-purple text-white hover:shadow-lg hover:shadow-primary-500/30'
                             : 'bg-dark-600 text-gray-500 cursor-not-allowed'
                         }`}
                       >
                         {sendingMessage ? (
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         ) : (
-                          <Send className="w-5 h-5" />
+                          <Send className="w-4 h-4" />
                         )}
                       </button>
                     </div>
                   </div>
                   
-                  {/* Reply Banner */}
+                  {/* Reply Banner - Modern */}
                   {replyingTo && (
-                    <div className="mb-4 p-3 bg-dark-600 border border-dark-500 rounded-xl">
+                    <div className="mb-2 p-2 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-xl border-l-2 border-blue-400 shadow-lg">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <MessageCircle className="w-4 h-4 text-blue-400" />
-                          <div>
-                            <p className="text-blue-400 text-sm font-medium">
-                              Replying to {replyingTo.username}
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          <MessageCircle className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-blue-400 text-xs font-medium">
+                              {replyingTo.username}
                             </p>
-                            <p className="text-gray-400 text-xs truncate max-w-md">
+                            <p className="text-gray-400 text-xs truncate">
                               {replyingTo.content}
                             </p>
                           </div>
                         </div>
                         <button
                           onClick={() => setReplyingTo(null)}
-                          className="text-red-400 hover:text-red-300 transition-colors"
+                          className="text-gray-400 hover:text-white transition-colors text-lg leading-none ml-2"
                         >
                           ×
                         </button>
@@ -1949,19 +2152,19 @@ const KolTechLine = () => {
                     </div>
                   )}
 
-                  {/* Edit Banner */}
+                  {/* Edit Banner - Modern */}
                   {editingMessage && (
-                    <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                    <div className="mb-2 p-2 bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 rounded-xl border-l-2 border-yellow-400 shadow-lg">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Settings className="w-4 h-4 text-yellow-400" />
-                          <p className="text-yellow-400 text-sm font-medium">
-                            Editing message
+                        <div className="flex items-center space-x-2">
+                          <Settings className="w-3 h-3 text-yellow-400" />
+                          <p className="text-yellow-400 text-xs font-medium">
+                            Editing
                           </p>
                         </div>
                         <button
                           onClick={handleCancelEdit}
-                          className="text-red-400 hover:text-red-300 transition-colors"
+                          className="text-gray-400 hover:text-white text-xs"
                         >
                           Cancel
                         </button>
@@ -1969,35 +2172,31 @@ const KolTechLine = () => {
                     </div>
                   )}
 
-                  {/* Wall Membership Warning */}
+                  {/* Wall Membership Warning - Modern */}
                   {isLoggedIn() && currentWall && !currentWall.isMember && (
-                    <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                    <div className="mb-2 p-2 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-xl border-l-2 border-yellow-400 shadow-lg">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <UserPlus className="w-5 h-5 text-yellow-400" />
-                          <div>
-                            <p className="text-yellow-400 font-medium">Join this wall to participate</p>
-                            <p className="text-gray-400 text-sm">You need to be a member to post messages, like, and comment.</p>
-                          </div>
+                        <div className="flex items-center space-x-2">
+                          <UserPlus className="w-4 h-4 text-yellow-400" />
+                          <p className="text-yellow-400 text-xs font-medium">Join to post</p>
                         </div>
                         <button
                           onClick={() => handleJoinWall(currentWall.id)}
-                          className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center space-x-2"
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1 rounded-xl text-xs hover:shadow-lg hover:shadow-green-500/30 transition-all font-medium"
                         >
-                          <UserPlus className="w-4 h-4" />
-                          <span>Join Now</span>
+                          Join
                         </button>
                       </div>
                     </div>
                   )}
                   
-                  {/* Selected Files Preview */}
+                  {/* Selected Files Preview - Modern */}
                   {filePreviews.length > 0 && (
-                    <div className="mb-3 p-3 bg-dark-600 rounded-lg">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <div className="mb-2 p-2 bg-gradient-to-br from-dark-600 to-dark-700 rounded-xl border border-dark-500 shadow-lg">
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                         {filePreviews.map((preview, index) => (
                           <div key={index} className="relative group">
-                            <div className="aspect-square rounded-lg overflow-hidden bg-dark-700">
+                            <div className="aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-dark-700 to-dark-800 border border-dark-600 shadow-md">
                               {preview.type === 'image' ? (
                                 <img
                                   src={preview.preview}
@@ -2013,20 +2212,10 @@ const KolTechLine = () => {
                                 />
                               )}
                               
-                              {/* File info overlay */}
-                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                                <div className="text-white text-xs truncate">
-                                  {preview.file.name}
-                                </div>
-                                <div className="text-white text-xs">
-                                  {preview.type === 'image' ? '📷' : '🎥'} {(preview.file.size / 1024 / 1024).toFixed(1)}MB
-                                </div>
-                              </div>
-                              
-                              {/* Remove button */}
+                              {/* Remove button - always visible on mobile, hover on desktop */}
                               <button
                                 onClick={() => removeFile(index)}
-                                className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors flex items-center justify-center"
+                                className="absolute top-0.5 right-0.5 w-5 h-5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full text-xs hover:shadow-lg hover:shadow-red-500/50 transition-all flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                               >
                                 ×
                               </button>
@@ -2036,8 +2225,8 @@ const KolTechLine = () => {
                       </div>
                       
                       {selectedFiles.length >= 15 && (
-                        <p className="text-yellow-400 text-xs mt-2">
-                          Maximum 15 files reached
+                        <p className="text-yellow-400 text-xs mt-1">
+                          Max 15 files
                         </p>
                       )}
                     </div>
@@ -2050,57 +2239,164 @@ const KolTechLine = () => {
             {/* Sidebar - Wall Info - Fixed from top of page */}
             <div className="w-80 bg-dark-800 border-l border-dark-700 p-6 hidden lg:block fixed right-0 top-14 bottom-0 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937', paddingBottom: '120px' }}>
             <div className="space-y-6 pb-20">
-              {/* Current Wall Info */}
-              <div className="bg-dark-700 rounded-xl p-4">
-                <h3 className="text-white font-semibold mb-3">Wall Information</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">Members</span>
-                    <span className="text-white">{currentWall?.participants}</span>
+              {loading ? (
+                /* Sidebar Skeleton */
+                <>
+                  {/* Wall Info Skeleton */}
+                  <div className="bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl p-5 border border-dark-600 shadow-xl animate-pulse">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-12 h-12 bg-dark-600 rounded-xl"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-dark-600 rounded w-32 mb-2"></div>
+                        <div className="h-2 bg-dark-600 rounded w-20"></div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-dark-600/50 rounded-xl p-3 h-24"></div>
+                      <div className="bg-dark-600/50 rounded-xl p-3 h-24"></div>
+                    </div>
+                    <div className="h-16 bg-dark-600/30 rounded-xl mb-4"></div>
+                    <div className="h-8 bg-dark-600 rounded-full mb-4"></div>
+                    <div className="h-12 bg-dark-600 rounded-xl"></div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">Category</span>
-                    <span className="text-white capitalize">{currentWall?.category}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">Your Status</span>
-                    {isLoggedIn() && currentWall ? (
-                      <span className={`text-sm ${currentWall.isMember ? 'text-green-400' : 'text-yellow-400'}`}>
-                        {currentWall.isMember ? 'Member' : 'Not Member'}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-sm">Guest</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">Status</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                      <span className="text-green-400 text-sm">Active</span>
+
+                  {/* Trending Tags Skeleton */}
+                  <div className="bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl p-5 border border-dark-600 shadow-xl animate-pulse">
+                    <div className="h-5 bg-dark-600 rounded w-32 mb-4"></div>
+                    <div className="flex flex-wrap gap-2">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="h-7 bg-dark-600 rounded-lg w-16"></div>
+                      ))}
                     </div>
                   </div>
+
+                  {/* Online Users Skeleton */}
+                  <div className="bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl p-5 border border-dark-600 shadow-xl animate-pulse">
+                    <div className="h-5 bg-dark-600 rounded w-28 mb-4"></div>
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-dark-600 rounded-full"></div>
+                          <div className="flex-1">
+                            <div className="h-3 bg-dark-600 rounded w-24 mb-1"></div>
+                            <div className="h-2 bg-dark-600 rounded w-32"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Actions Skeleton */}
+                  <div className="space-y-3 animate-pulse">
+                    <div className="h-12 bg-dark-600 rounded-xl"></div>
+                    <div className="h-12 bg-dark-600 rounded-xl"></div>
+                    <div className="h-12 bg-dark-600 rounded-xl"></div>
+                  </div>
+                </>
+              ) : (
+                <>
+              {/* Current Wall Info - Enhanced */}
+              <div className="bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl p-5 border border-dark-600 shadow-xl">
+                {/* Wall Header with Icon */}
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className={`p-3 bg-gradient-to-r ${currentWall?.color} rounded-xl shadow-lg`}>
+                    {currentWall?.icon && <currentWall.icon className="w-6 h-6 text-white" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-bold text-lg truncate">{currentWall?.name}</h3>
+                    <p className="text-gray-400 text-xs capitalize">{currentWall?.category}</p>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {/* Members Count */}
+                  <div className="bg-dark-600/50 rounded-xl p-3 border border-dark-500 hover:border-primary-500/50 transition-all group">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Users className="w-4 h-4 text-primary-400 group-hover:scale-110 transition-transform" />
+                      <span className="text-gray-400 text-xs">Members</span>
+                    </div>
+                    <p className="text-white text-2xl font-bold">{currentWall?.participants || 0}</p>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-green-400 text-xs">+12 today</span>
+                    </div>
+                  </div>
+
+                  {/* Messages Count */}
+                  <div className="bg-dark-600/50 rounded-xl p-3 border border-dark-500 hover:border-accent-purple/50 transition-all group">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <MessageCircle className="w-4 h-4 text-accent-purple group-hover:scale-110 transition-transform" />
+                      <span className="text-gray-400 text-xs">Messages</span>
+                    </div>
+                    <p className="text-white text-2xl font-bold">{messages.length}</p>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <TrendingUp className="w-3 h-3 text-accent-purple" />
+                      <span className="text-accent-purple text-xs">Active</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Indicator */}
+                <div className="bg-dark-600/30 rounded-xl p-3 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-400 text-xs">Activity Level</span>
+                    <span className="text-green-400 text-xs font-medium">Very High</span>
+                  </div>
+                  <div className="w-full bg-dark-500 rounded-full h-2 overflow-hidden">
+                    <div className="bg-gradient-to-r from-green-500 to-emerald-400 h-full rounded-full animate-pulse" style={{ width: '85%' }}></div>
+                  </div>
+                </div>
+
+                {/* Your Status Badge */}
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-gray-400 text-sm">Your Status</span>
+                  {isLoggedIn() && currentWall ? (
+                    <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full ${
+                      currentWall.isMember 
+                        ? 'bg-green-500/20 border border-green-500/30' 
+                        : 'bg-yellow-500/20 border border-yellow-500/30'
+                    }`}>
+                      {currentWall.isMember ? (
+                        <>
+                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                          <span className="text-green-400 text-xs font-medium">Member</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                          <span className="text-yellow-400 text-xs font-medium">Guest</span>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-500/20 border border-gray-500/30">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                      <span className="text-gray-400 text-xs font-medium">Visitor</span>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Join/Leave Wall Actions */}
                 {isLoggedIn() && currentWall && (
-                  <div className="mt-4 pt-4 border-t border-dark-600">
+                  <div className="pt-4 border-t border-dark-600">
                     {!currentWall.isMember ? (
                       <button
                         onClick={() => handleJoinWall(currentWall.id)}
-                        className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 px-4 rounded-lg hover:shadow-lg transition-all flex items-center justify-center space-x-2"
+                        className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 px-4 rounded-xl hover:shadow-lg hover:shadow-green-500/20 transition-all flex items-center justify-center space-x-2 font-medium group"
                       >
-                        <UserPlus className="w-4 h-4" />
+                        <UserPlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
                         <span>Join This Wall</span>
                       </button>
                     ) : (
                       <div className="space-y-2">
-                        <div className="flex items-center justify-center space-x-2 text-green-400 text-sm mb-2">
+                        <div className="flex items-center justify-center space-x-2 text-green-400 text-sm mb-3 bg-green-500/10 py-2 rounded-lg">
                           <Users className="w-4 h-4" />
-                          <span>You are a member</span>
+                          <span className="font-medium">You're a member!</span>
                         </div>
                         <button
                           onClick={() => handleLeaveWall(currentWall.id)}
-                          className="w-full bg-red-500/20 border border-red-500/30 text-red-400 py-2 px-4 rounded-lg hover:bg-red-500/30 transition-all text-sm"
+                          className="w-full bg-red-500/10 border border-red-500/30 text-red-400 py-2.5 px-4 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium"
                         >
                           Leave Wall
                         </button>
@@ -2110,19 +2406,28 @@ const KolTechLine = () => {
                 )}
               </div>
 
-              {/* Trending Tags */}
-              <div className="bg-dark-700 rounded-xl p-4">
-                <h3 className="text-white font-semibold mb-3">Trending Tags</h3>
+              {/* Trending Tags - Enhanced */}
+              <div className="bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl p-5 border border-dark-600 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Hash className="w-5 h-5 text-accent-purple" />
+                    <h3 className="text-white font-bold">Trending Tags</h3>
+                  </div>
+                  <TrendingUp className="w-4 h-4 text-accent-purple animate-pulse" />
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {popularTags.slice(0, 8).map(tag => (
+                  {popularTags.slice(0, 10).map((tag, index) => (
                     <button
                       key={tag}
                       onClick={() => toggleTag(tag)}
-                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all transform hover:scale-105 ${
                         selectedTags.includes(tag)
-                          ? 'bg-accent-purple text-white'
-                          : 'bg-dark-600 text-gray-400 hover:text-white'
+                          ? 'bg-gradient-to-r from-accent-purple to-primary-500 text-white shadow-lg shadow-accent-purple/30'
+                          : 'bg-dark-600 text-gray-400 hover:text-white hover:bg-dark-500 border border-dark-500'
                       }`}
+                      style={{
+                        animationDelay: `${index * 50}ms`
+                      }}
                     >
                       #{tag}
                     </button>
@@ -2130,57 +2435,77 @@ const KolTechLine = () => {
                 </div>
               </div>
 
-              {/* Online Users */}
-              <div className="bg-dark-700 rounded-xl p-4">
-                <h3 className="text-white font-semibold mb-3">Online Now</h3>
+              {/* Online Users - Enhanced */}
+              <div className="bg-gradient-to-br from-dark-700 to-dark-800 rounded-2xl p-5 border border-dark-600 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="relative">
+                      <Users className="w-5 h-5 text-green-400" />
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
+                    </div>
+                    <h3 className="text-white font-bold">Online Now</h3>
+                  </div>
+                  <span className="text-green-400 text-sm font-medium">3 active</span>
+                </div>
                 <div className="space-y-3">
                   {[
-                    { name: 'Alex Chen', status: 'Available for projects' },
-                    { name: 'Sarah Johnson', status: 'Seeking investors' },
-                    { name: 'Mike Rodriguez', status: 'Building MVP' }
+                    { name: 'Alex Chen', status: 'Available for projects', color: 'from-blue-500 to-cyan-500', online: true },
+                    { name: 'Sarah Johnson', status: 'Seeking investors', color: 'from-purple-500 to-pink-500', online: true },
+                    { name: 'Mike Rodriguez', status: 'Building MVP', color: 'from-orange-500 to-red-500', online: true }
                   ].map((user, index) => (
-                    <div key={index} className="flex items-center space-x-3">
+                    <div 
+                      key={index} 
+                      className="flex items-center space-x-3 p-2 rounded-xl hover:bg-dark-600/50 transition-all cursor-pointer group"
+                      style={{
+                        animationDelay: `${index * 100}ms`
+                      }}
+                    >
                       <div className="relative">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-purple rounded-full"></div>
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-dark-700"></div>
+                        <div className={`w-10 h-10 bg-gradient-to-br ${user.color} rounded-full group-hover:scale-110 transition-transform`}></div>
+                        {user.online && (
+                          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-dark-700 animate-pulse"></div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{user.name}</p>
+                        <p className="text-white text-sm font-medium truncate group-hover:text-primary-400 transition-colors">{user.name}</p>
                         <p className="text-gray-400 text-xs truncate">{user.status}</p>
                       </div>
+                      <MessageCircle className="w-4 h-4 text-gray-500 group-hover:text-primary-400 transition-colors" />
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Quick Actions */}
+              {/* Quick Actions - Enhanced */}
               <div className="space-y-3">
                 <button
                   onClick={handleCreateWall}
-                  className="w-full bg-gradient-to-r from-primary-500 to-accent-purple text-white py-3 rounded-xl font-medium hover:shadow-lg transition-all flex items-center justify-center space-x-2"
+                  className="w-full bg-gradient-to-r from-primary-500 to-accent-purple text-white py-3.5 rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all flex items-center justify-center space-x-2 group"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                   <span>Create New Wall</span>
                 </button>
                 
                 {isLoggedIn() && (
                   <button
                     onClick={handleStartKolophone}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-medium hover:shadow-lg transition-all flex items-center justify-center space-x-2"
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3.5 rounded-xl font-medium hover:shadow-lg hover:shadow-green-500/30 transition-all flex items-center justify-center space-x-2 group"
                   >
-                    <PhoneCall className="w-4 h-4" />
+                    <PhoneCall className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     <span>Start Wall Call</span>
                   </button>
                 )}
                 
                 <button
                   onClick={() => navigate('/contacts')}
-                  className="w-full bg-dark-700 border border-dark-600 text-gray-300 py-3 rounded-xl font-medium hover:bg-dark-600 transition-colors flex items-center justify-center space-x-2"
+                  className="w-full bg-dark-700 border border-dark-600 text-gray-300 py-3.5 rounded-xl font-medium hover:bg-dark-600 hover:border-primary-500/50 transition-all flex items-center justify-center space-x-2 group"
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   <span>Manage Contacts</span>
                 </button>
               </div>
+                </>
+              )}
             </div>
               </div>
             </div>
