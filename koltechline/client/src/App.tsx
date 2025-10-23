@@ -73,6 +73,7 @@ function AppContent() {
         
         {/* KolTechLine - основная страница */}
         <Route path="/koltech-line" element={<KolTechLine />} />
+        <Route path="/koltech-line/:wallId" element={<KolTechLine />} />
         
         {/* Чаты и сообщения */}
         <Route path="/chats" element={<Chats />} />

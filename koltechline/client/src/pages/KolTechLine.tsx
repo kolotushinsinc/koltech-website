@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   Send,
   Image,
@@ -86,6 +86,7 @@ interface Wall {
 
 const KolTechLine = () => {
   const navigate = useNavigate();
+  const { wallId } = useParams<{ wallId?: string }>();
   const { isLoggedIn, canCreatePosts, canLikeContent, canCommentOnContent, canCreateWalls, user } = useAuth();
   const {
     showAuthModal,
@@ -221,6 +222,13 @@ const KolTechLine = () => {
     }
   }, [isConnected]); // Only depend on connection status
 
+  // Set active wall from URL parameter
+  useEffect(() => {
+    if (wallId) {
+      setActiveWall(wallId);
+    }
+  }, [wallId]);
+
   // Load walls from API
   useEffect(() => {
     loadWalls();
@@ -231,6 +239,10 @@ const KolTechLine = () => {
     if (activeWall) {
       console.log('🏠 Switching to wall:', activeWall);
       loadMessages(1, true); // Reset pagination when switching walls
+    } else {
+      // Clear messages when no wall is selected
+      setMessages([]);
+      setLoading(false);
     }
   }, [activeWall]);
 
@@ -266,10 +278,8 @@ const KolTechLine = () => {
       
       setWalls(wallsData);
       
-      // Set first wall as active if none selected
-      if (!activeWall && wallsData.length > 0) {
-        setActiveWall(wallsData[0].id);
-      }
+      // Don't auto-select any wall - user must choose manually
+      // This prevents resetting activeWall when filtering categories
     } catch (error) {
       console.error('Error loading walls:', error);
     } finally {
@@ -1214,8 +1224,16 @@ const KolTechLine = () => {
         />
         
         <div className="flex-1">
+        {/* Backdrop Blur Overlay - показывается когда список стен открыт */}
+        {showWalls && (
+          <div 
+            className="fixed inset-0 bg-dark-900/60 backdrop-blur-sm z-10 transition-all duration-300"
+            onClick={() => setShowWalls(false)}
+          />
+        )}
+
         {/* Walls list - Compact Modern Design */}
-        <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 border-b border-dark-600 transition-all duration-300 fixed top-16 left-0 right-0 lg:right-80 z-20 ${showWalls ? 'opacity-100 h-[400px]' : 'opacity-0 h-0 overflow-hidden'}`}>
+        <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 transition-all duration-300 fixed top-16 left-0 right-0 lg:right-80 z-20 ${showWalls ? 'opacity-100 h-[350px] shadow-2xl shadow-dark-900/50' : 'opacity-0 h-0 overflow-hidden'}`}>
           <div className="container mx-auto px-4 py-3">
             {showWalls && (
               <div className="animate-fade-in">
@@ -1319,7 +1337,7 @@ const KolTechLine = () => {
                       <button
                       key={wall.id}
                       onClick={() => {
-                        setActiveWall(wall.id);
+                        navigate(`/koltech-line/${wall.id}`);
                         setShowWalls(false);
                       }}
                       className={`p-3 rounded-xl border transition-all duration-200 group text-left relative hover:z-10 ${
@@ -1476,9 +1494,9 @@ const KolTechLine = () => {
           {/* Messages Feed - With right padding to account for fixed sidebar */}
           <div className="flex-1 flex flex-col lg:pr-80">
             {/* Current Wall Header - Enhanced modern design */}
-            <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 p-4 fixed left-0 right-0 lg:right-80 z-30 border-b border-dark-600 shadow-lg backdrop-blur-sm transition-all duration-300 ${showWalls ? 'top-[416px]' : 'top-16'}`}>
+            <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 p-4 fixed left-0 right-0 lg:right-80 z-30 border-b border-dark-600 shadow-lg backdrop-blur-sm transition-all duration-300 ${showWalls ? 'top-[366px] blur-sm opacity-60 pointer-events-none' : 'top-16'}`}>
               <div className="container mx-auto">
-                {loading ? (
+                {!activeWall || loading ? (
                   /* Header Skeleton */
                   <div className="flex items-center justify-between animate-pulse">
                     <div className="flex items-center space-x-4">
@@ -1548,7 +1566,7 @@ const KolTechLine = () => {
             </div>
 
             {/* Messages */}
-            <div className={`flex-1 overflow-y-auto p-6 pb-40 container mx-auto relative transition-all duration-300 ${showWalls ? 'pt-[634px]' : 'pt-44'}`} onScroll={(e) => {
+            <div className={`flex-1 overflow-y-auto p-6 pb-40 container mx-auto relative transition-all duration-300 ${showWalls ? 'pt-[584px] blur-sm opacity-60 pointer-events-none' : 'pt-44'}`} onScroll={(e) => {
               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
               if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMoreMessages && !loadingMore) {
                 loadMoreMessages();
@@ -1561,6 +1579,39 @@ const KolTechLine = () => {
                 <div className="absolute bottom-40 left-1/3 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
               </div>
 
+              {!activeWall ? (
+                /* No Wall Selected Placeholder */
+                <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+                  <div className="text-center max-w-md px-6 animate-fade-in">
+                    <div className="w-24 h-24 bg-gradient-to-br from-primary-500 to-accent-purple rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-primary-500/30 animate-pulse">
+                      <Users className="w-12 h-12 text-white" />
+                    </div>
+                    <h2 className="text-white text-3xl font-bold mb-3">Welcome to KolTech Line</h2>
+                    <p className="text-gray-400 text-lg mb-8">
+                      Choose a wall to start connecting with professionals, entrepreneurs, and innovators
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <button
+                        onClick={() => setShowWalls(true)}
+                        className="bg-gradient-to-r from-primary-500 to-accent-purple text-white px-6 py-3 rounded-xl font-semibold text-base hover:shadow-2xl hover:shadow-primary-500/40 transition-all transform hover:scale-105 flex items-center space-x-2 group whitespace-nowrap"
+                      >
+                        <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        <span>Choose a Wall</span>
+                      </button>
+                      
+                      <span className="text-gray-500 text-base font-medium">or</span>
+                      
+                      <button
+                        onClick={handleCreateWall}
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-semibold text-base hover:shadow-2xl hover:shadow-green-500/40 transition-all transform hover:scale-105 flex items-center space-x-2 group whitespace-nowrap"
+                      >
+                        <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                        <span>Create Wall</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <div className="max-w-3xl mx-auto space-y-6 relative z-10">
                 {loading ? (
                   /* Skeleton Loading */
@@ -2038,10 +2089,12 @@ const KolTechLine = () => {
                   </div>
                 )}
               </div>
+              )}
             </div>
 
-            {/* Message Input - Modern Telegram-style */}
-            <div className="bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 border-t border-dark-600 fixed bottom-0 left-0 right-0 lg:right-80 z-10 shadow-2xl">
+            {/* Message Input - Modern Telegram-style - Only show when wall is selected */}
+            {activeWall && (
+            <div className={`bg-gradient-to-r from-dark-800 via-dark-700 to-dark-800 border-t border-dark-600 fixed bottom-0 left-0 right-0 lg:right-80 z-10 shadow-2xl transition-all duration-300 ${showWalls ? 'blur-sm opacity-60 pointer-events-none' : ''}`}>
               <div className="py-2 px-4">
                 <div className="container mx-auto">
                 <div
@@ -2235,11 +2288,13 @@ const KolTechLine = () => {
                 </div>
               </div>
             </div>
+            )}
 
+            {/* Sidebar - Wall Info - Fixed from top of page */}
             {/* Sidebar - Wall Info - Fixed from top of page */}
             <div className="w-80 bg-dark-800 border-l border-dark-700 p-6 hidden lg:block fixed right-0 top-14 bottom-0 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937', paddingBottom: '120px' }}>
             <div className="space-y-6 pb-20">
-              {loading ? (
+              {!activeWall || loading ? (
                 /* Sidebar Skeleton */
                 <>
                   {/* Wall Info Skeleton */}
