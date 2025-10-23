@@ -32,6 +32,7 @@ import {
   X
 } from 'lucide-react';
 import Header from '../components/Header';
+import Comment from '../components/Comment';
 import AuthModal from '../components/ui/AuthModal';
 import CreateWallModal from '../components/ui/CreateWallModal';
 import ImageGalleryModal from '../components/ui/ImageGalleryModal';
@@ -68,6 +69,8 @@ interface Message {
     };
   };
   userReaction?: string; // The emoji the current user reacted with
+  parentComment?: string; // ID родительского комментария для вложенных ответов
+  nestedReplies?: Message[]; // Вложенные ответы на этот комментарий
 }
 
 interface Wall {
@@ -119,10 +122,15 @@ const KolTechLine = () => {
   
   // Reaction picker state
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [showCommentReactionPicker, setShowCommentReactionPicker] = useState<string | null>(null);
   const [messageMenuOpen, setMessageMenuOpen] = useState<string | null>(null);
+  const [commentMenuOpen, setCommentMenuOpen] = useState<string | null>(null);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [messageReplies, setMessageReplies] = useState<{ [key: string]: Message[] }>({});
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
+  const [editingComment, setEditingComment] = useState<{ id: string; content: string } | null>(null);
+  const [replyingToComment, setReplyingToComment] = useState<{ commentId: string; username: string; parentMessageId: string } | null>(null);
+  const [isHoveringComments, setIsHoveringComments] = useState<string | null>(null); // Track which message's comments area is being hovered
   
   // UI state
   const [showFilters, setShowFilters] = useState(false);
@@ -526,13 +534,28 @@ const KolTechLine = () => {
   };
 
   const handleSendMessage = async () => {
-    // Check if editing
+    // Check if editing comment
+    if (editingComment) {
+      handleSaveCommentEdit();
+      return;
+    }
+
+    // Check if editing message
     if (editingMessage) {
       handleSaveEdit();
       return;
     }
 
-    // Check if replying
+    // Check if replying to comment
+    if (replyingToComment) {
+      if (!newMessage.trim()) return;
+      await createComment(replyingToComment.parentMessageId, newMessage.trim(), replyingToComment.commentId);
+      setNewMessage('');
+      setReplyingToComment(null);
+      return;
+    }
+
+    // Check if replying to message
     if (replyingTo) {
       if (!newMessage.trim()) return;
       await createComment(replyingTo.messageId, newMessage.trim());
@@ -868,46 +891,296 @@ const KolTechLine = () => {
     }
   };
 
-  const createComment = async (messageId: string, content: string) => {
-    try {
-      const response = await messageApi.addComment(messageId, content);
-      
-      // Update replies count
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+
+  const createComment = async (messageId: string, content: string, parentCommentId?: string) => {
+    // Generate temporary ID for optimistic update
+    const tempId = `temp-comment-${Date.now()}`;
+    
+    // Сохраняем текст для rollback
+    const originalContent = content.trim();
+    
+    // Create optimistic comment
+    const optimisticComment: Message = {
+      id: tempId,
+      userId: user!._id,
+      username: `${user!.firstName} ${user!.lastName}`,
+      avatar: user!.avatar ? `http://localhost:5005${user!.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(user!.firstName + ' ' + user!.lastName)}&background=6366f1&color=fff&size=40`,
+      content: originalContent,
+      timestamp: new Date(),
+      likes: 0,
+      replies: 0,
+      tags: [],
+      isLiked: false,
+      isEdited: false,
+      reactions: {},
+      nestedReplies: []
+    };
+    
+    // OPTIMISTIC UPDATE - мгновенно добавляем комментарий в UI
+    if (parentCommentId) {
+      // Вложенный ответ - добавляем в nestedReplies
+      setMessageReplies(prev => {
+        const currentReplies = prev[messageId] || [];
+        
+        const addNestedReply = (comments: Message[]): Message[] => {
+          return comments.map(comment => {
+            if (comment.id === parentCommentId) {
+              return {
+                ...comment,
+                nestedReplies: [...(comment.nestedReplies || []), optimisticComment]
+              };
+            } else if (comment.nestedReplies && comment.nestedReplies.length > 0) {
+              return {
+                ...comment,
+                nestedReplies: addNestedReply(comment.nestedReplies)
+              };
+            }
+            return comment;
+          });
+        };
+        
+        return {
+          ...prev,
+          [messageId]: addNestedReply(currentReplies)
+        };
+      });
+    } else {
+      // Прямой ответ на сообщение
       setMessages(prev => prev.map(msg =>
         msg.id === messageId
           ? { ...msg, replies: msg.replies + 1 }
           : msg
       ));
       
-      // If replies are expanded, add new reply to the list
       if (expandedReplies.has(messageId)) {
-        const newReply: Message = {
-          id: response.data.comment._id,
-          userId: response.data.comment.author._id,
-          username: `${response.data.comment.author.firstName} ${response.data.comment.author.lastName}`,
-          avatar: response.data.comment.author.avatar ? `http://localhost:5005${response.data.comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(response.data.comment.author.firstName + ' ' + response.data.comment.author.lastName)}&background=6366f1&color=fff&size=40`,
-          content: response.data.comment.content,
-          timestamp: new Date(response.data.comment.createdAt),
-          likes: 0,
-          replies: 0,
-          tags: [],
-          isLiked: false,
-          isEdited: false
-        };
-        
         setMessageReplies(prev => ({
           ...prev,
-          [messageId]: [...(prev[messageId] || []), newReply]
+          [messageId]: [...(prev[messageId] || []), optimisticComment]
+        }));
+      }
+    }
+    
+    // ВАЖНО: Очищаем форму СРАЗУ после optimistic update
+    setNewMessage('');
+    setReplyingTo(null);
+    setReplyingToComment(null);
+    
+    // Подсвечиваем новый комментарий
+    setHighlightedCommentId(tempId);
+    
+    // Скроллим к комментарию через задержку (чтобы DOM обновился и раскрылись родители)
+    // Для вложенных ответов задержка больше, чтобы все родительские комментарии успели раскрыться
+    setTimeout(() => {
+      const commentElement = document.getElementById(`comment-${tempId}`);
+      if (commentElement) {
+        commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, parentCommentId ? 800 : 100); // Увеличенная задержка для вложенных ответов любого уровня
+    
+    // Убираем подсветку через 2 секунды
+    setTimeout(() => {
+      setHighlightedCommentId(null);
+    }, 2000);
+    
+    try {
+      // Отправляем на сервер в фоне
+      const response = await messageApi.addComment(messageId, content, parentCommentId);
+      
+      const realComment: Message = {
+        id: response.data.comment._id,
+        userId: response.data.comment.author._id,
+        username: `${response.data.comment.author.firstName} ${response.data.comment.author.lastName}`,
+        avatar: response.data.comment.author.avatar ? `http://localhost:5005${response.data.comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(response.data.comment.author.firstName + ' ' + response.data.comment.author.lastName)}&background=6366f1&color=fff&size=40`,
+        content: response.data.comment.content,
+        timestamp: new Date(response.data.comment.createdAt),
+        likes: 0,
+        replies: 0,
+        tags: [],
+        isLiked: false,
+        isEdited: false,
+        reactions: {},
+        nestedReplies: []
+      };
+      
+      // Заменяем временный комментарий на реальный
+      // НЕ обновляем highlighted ID - он уже установлен и будет автоматически сброшен
+      if (parentCommentId) {
+        setMessageReplies(prev => {
+          const currentReplies = prev[messageId] || [];
+          
+          const replaceComment = (comments: Message[]): Message[] => {
+            return comments.map(comment => {
+              if (comment.id === parentCommentId) {
+                return {
+                  ...comment,
+                  nestedReplies: (comment.nestedReplies || []).map(nested =>
+                    nested.id === tempId ? realComment : nested
+                  )
+                };
+              } else if (comment.nestedReplies && comment.nestedReplies.length > 0) {
+                return {
+                  ...comment,
+                  nestedReplies: replaceComment(comment.nestedReplies)
+                };
+              }
+              return comment;
+            });
+          };
+          
+          return {
+            ...prev,
+            [messageId]: replaceComment(currentReplies)
+          };
+        });
+      } else {
+        setMessageReplies(prev => ({
+          ...prev,
+          [messageId]: (prev[messageId] || []).map(comment =>
+            comment.id === tempId ? realComment : comment
+          )
         }));
       }
       
-      // Clear reply state
-      setReplyingTo(null);
-      showSuccess('✅ Reply posted successfully');
+      // Убрали toast - комментарий появляется мгновенно благодаря optimistic UI
     } catch (error) {
       console.error('Error creating comment:', error);
+      
+      // ROLLBACK - восстанавливаем текст в форму
+      setNewMessage(originalContent);
+      if (parentCommentId) {
+        setReplyingToComment({ 
+          commentId: parentCommentId, 
+          username: '', // Не критично для восстановления
+          parentMessageId: messageId 
+        });
+      } else {
+        setReplyingTo({ 
+          messageId, 
+          username: '', // Не критично для восстановления
+          content: '' 
+        });
+      }
+      
+      // ROLLBACK - удаляем оптимистичный комментарий при ошибке
+      if (parentCommentId) {
+        setMessageReplies(prev => {
+          const currentReplies = prev[messageId] || [];
+          
+          const removeComment = (comments: Message[]): Message[] => {
+            return comments.map(comment => {
+              if (comment.id === parentCommentId) {
+                return {
+                  ...comment,
+                  nestedReplies: (comment.nestedReplies || []).filter(nested => nested.id !== tempId)
+                };
+              } else if (comment.nestedReplies && comment.nestedReplies.length > 0) {
+                return {
+                  ...comment,
+                  nestedReplies: removeComment(comment.nestedReplies)
+                };
+              }
+              return comment;
+            });
+          };
+          
+          return {
+            ...prev,
+            [messageId]: removeComment(currentReplies)
+          };
+        });
+      } else {
+        setMessages(prev => prev.map(msg =>
+          msg.id === messageId
+            ? { ...msg, replies: Math.max(0, msg.replies - 1) }
+            : msg
+        ));
+        
+        setMessageReplies(prev => ({
+          ...prev,
+          [messageId]: (prev[messageId] || []).filter(comment => comment.id !== tempId)
+        }));
+      }
+      
       showError('❌ Error posting reply. Please try again.');
     }
+  };
+
+  // Build comment tree from flat list
+  const buildCommentTree = (comments: any[], messageId: string): Message[] => {
+    const commentMap = new Map<string, Message>();
+    const rootComments: Message[] = [];
+    
+    console.log('🌳 Building comment tree for message:', messageId);
+    console.log('📦 Total comments received:', comments.length);
+    
+    // First pass: create all comment objects
+    comments.forEach((comment: any) => {
+      // ВАЖНО: Правильно определяем userReaction из массива reactions
+      let userReaction: string | undefined;
+      if (user && comment.reactions && Array.isArray(comment.reactions)) {
+        const reaction = comment.reactions.find((r: any) => 
+          r.users && r.users.some((userId: string) => userId === user._id)
+        );
+        if (reaction) {
+          userReaction = reaction.emoji;
+        }
+      }
+      
+      const commentObj: Message = {
+        id: comment._id,
+        userId: comment.author._id,
+        username: `${comment.author.firstName} ${comment.author.lastName}`,
+        avatar: comment.author.avatar ? `http://localhost:5005${comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author.firstName + ' ' + comment.author.lastName)}&background=6366f1&color=fff&size=40`,
+        content: comment.content,
+        timestamp: new Date(comment.createdAt),
+        likes: comment.likesCount || 0,
+        replies: 0,
+        tags: [],
+        isLiked: comment.likes?.includes(user?._id) || false,
+        isEdited: comment.isEdited || false,
+        editedAt: comment.editedAt ? new Date(comment.editedAt) : undefined,
+        reactions: comment.reactions ? comment.reactions.reduce((acc: any, r: any) => {
+          acc[r.emoji] = { count: r.count, users: r.users };
+          return acc;
+        }, {}) : {},
+        userReaction: userReaction, // Используем правильно определённую userReaction
+        parentComment: comment.parentMessage,
+        nestedReplies: []
+      };
+      commentMap.set(comment._id, commentObj);
+      console.log(`📝 Comment ${comment._id}: parentMessage=${comment.parentMessage}, userReaction=${userReaction}`);
+    });
+    
+    // Second pass: build tree structure
+    commentMap.forEach((comment) => {
+      // Проверяем является ли parentComment ID другого комментария (вложенный)
+      // или ID сообщения (корневой)
+      const parentIsComment = commentMap.has(comment.parentComment || '');
+      
+      if (parentIsComment) {
+        // Это вложенный ответ на комментарий
+        const parent = commentMap.get(comment.parentComment!);
+        if (parent) {
+          parent.nestedReplies = parent.nestedReplies || [];
+          parent.nestedReplies.push(comment);
+          console.log(`  ↳ Nested reply ${comment.id} added to comment ${parent.id}`);
+        }
+      } else {
+        // Это корневой комментарий (прямой ответ на сообщение)
+        rootComments.push(comment);
+        console.log(`  ↳ Root comment ${comment.id}`);
+      }
+    });
+    
+    console.log(`✅ Built tree: ${rootComments.length} root comments`);
+    rootComments.forEach(root => {
+      if (root.nestedReplies && root.nestedReplies.length > 0) {
+        console.log(`  └─ Comment ${root.id} has ${root.nestedReplies.length} nested replies`);
+      }
+    });
+    
+    return rootComments;
   };
 
   const toggleReplies = async (messageId: string) => {
@@ -931,24 +1204,12 @@ const KolTechLine = () => {
         try {
           const response = await messageApi.getComments(messageId);
           
-          const replies = response.data.comments.map((comment: any) => ({
-            id: comment._id,
-            userId: comment.author._id,
-            username: `${comment.author.firstName} ${comment.author.lastName}`,
-            avatar: comment.author.avatar ? `http://localhost:5005${comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author.firstName + ' ' + comment.author.lastName)}&background=6366f1&color=fff&size=40`,
-            content: comment.content,
-            timestamp: new Date(comment.createdAt),
-            likes: comment.likesCount || 0,
-            replies: 0,
-            tags: [],
-            isLiked: comment.likes?.includes(user?._id) || false,
-            isEdited: comment.isEdited || false,
-            editedAt: comment.editedAt ? new Date(comment.editedAt) : undefined
-          }));
+          // Build comment tree from flat list
+          const commentTree = buildCommentTree(response.data.comments, messageId);
           
           setMessageReplies(prev => ({
             ...prev,
-            [messageId]: replies
+            [messageId]: commentTree
           }));
         } catch (error) {
           console.error('Error loading replies:', error);
@@ -1060,6 +1321,227 @@ const KolTechLine = () => {
         console.error('Error reporting message:', error);
         showError('❌ Error reporting content. Please try again.');
       }
+    }
+  };
+
+  // Comment handlers
+  const handleEditComment = (comment: Message, parentMessageId: string) => {
+    setEditingComment({ id: comment.id, content: comment.content });
+    setReplyingToComment({ commentId: comment.id, username: comment.username, parentMessageId });
+    setNewMessage(comment.content);
+    textareaRef.current?.focus();
+  };
+
+  const handleDeleteComment = async (commentId: string, parentMessageId: string) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+    
+    try {
+      await messageApi.deleteComment(commentId);
+      
+      // Remove from local state
+      setMessageReplies(prev => ({
+        ...prev,
+        [parentMessageId]: prev[parentMessageId]?.filter(c => c.id !== commentId) || []
+      }));
+      
+      // Update parent message reply count
+      setMessages(prev => prev.map(msg =>
+        msg.id === parentMessageId
+          ? { ...msg, replies: Math.max(0, msg.replies - 1) }
+          : msg
+      ));
+      
+      showSuccess('Comment deleted successfully');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      showError('Error deleting comment. Please try again.');
+    }
+  };
+
+  const handleSaveCommentEdit = async () => {
+    if (!editingComment || !newMessage.trim() || !replyingToComment) return;
+    
+    const originalComment = messageReplies[replyingToComment.parentMessageId]?.find(c => c.id === editingComment.id);
+    if (!originalComment) return;
+    
+    const originalContent = originalComment.content;
+    const newContent = newMessage.trim();
+    
+    // OPTIMISTIC UPDATE
+    setMessageReplies(prev => ({
+      ...prev,
+      [replyingToComment.parentMessageId]: prev[replyingToComment.parentMessageId]?.map(c =>
+        c.id === editingComment.id
+          ? { ...c, content: newContent, isEdited: true, editedAt: new Date() }
+          : c
+      ) || []
+    }));
+    
+    setEditingComment(null);
+    setReplyingToComment(null);
+    setNewMessage('');
+    
+    try {
+      await messageApi.updateComment(editingComment.id, newContent);
+      showSuccess('✅ Comment updated successfully');
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      
+      // ROLLBACK
+      setMessageReplies(prev => ({
+        ...prev,
+        [replyingToComment.parentMessageId]: prev[replyingToComment.parentMessageId]?.map(c =>
+          c.id === editingComment.id
+            ? { ...c, content: originalContent, isEdited: originalComment.isEdited, editedAt: originalComment.editedAt }
+            : c
+        ) || []
+      }));
+      
+      setEditingComment({ id: editingComment.id, content: originalContent });
+      setReplyingToComment({ commentId: editingComment.id, username: originalComment.username, parentMessageId: replyingToComment.parentMessageId });
+      setNewMessage(originalContent);
+      
+      showError('❌ Error updating comment. Please try again.');
+    }
+  };
+
+  const handleCommentReaction = async (commentId: string, emoji: string, parentMessageId: string) => {
+    if (!canLikeContent()) {
+      setShowAuthModal(true, 'like');
+      return;
+    }
+    
+    // Рекурсивная функция для поиска комментария в дереве
+    const findComment = (comments: Message[]): Message | null => {
+      for (const comment of comments) {
+        if (comment.id === commentId) return comment;
+        if (comment.nestedReplies && comment.nestedReplies.length > 0) {
+          const found = findComment(comment.nestedReplies);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const currentComment = findComment(messageReplies[parentMessageId] || []);
+    if (!currentComment) return;
+    
+    const currentReactions = { ...currentComment.reactions };
+    const currentUserReaction = currentComment.userReaction;
+    const userId = user?._id;
+    
+    // Create new reactions state
+    const newReactions = { ...currentReactions };
+    
+    // ВАЖНО: Сначала удаляем старую реакцию пользователя (если есть)
+    // Это предотвращает "мерцание" когда обе реакции видны одновременно
+    if (currentUserReaction && newReactions[currentUserReaction]) {
+      newReactions[currentUserReaction] = {
+        count: Math.max(0, newReactions[currentUserReaction].count - 1),
+        users: newReactions[currentUserReaction].users.filter(id => id !== userId)
+      };
+      if (newReactions[currentUserReaction].count === 0) {
+        delete newReactions[currentUserReaction];
+      }
+    }
+    
+    // Если пользователь кликнул на ту же реакцию - просто удаляем её (уже удалили выше)
+    // Если на другую - добавляем новую
+    if (currentUserReaction !== emoji) {
+      if (newReactions[emoji]) {
+        newReactions[emoji] = {
+          count: newReactions[emoji].count + 1,
+          users: [...newReactions[emoji].users, userId!]
+        };
+      } else {
+        newReactions[emoji] = {
+          count: 1,
+          users: [userId!]
+        };
+      }
+    }
+    
+    const newUserReaction = currentUserReaction === emoji ? undefined : emoji;
+    
+    // Рекурсивная функция для обновления комментария в дереве
+    const updateCommentInTree = (comments: Message[]): Message[] => {
+      return comments.map(comment => {
+        if (comment.id === commentId) {
+          return { ...comment, reactions: newReactions, userReaction: newUserReaction };
+        }
+        if (comment.nestedReplies && comment.nestedReplies.length > 0) {
+          return {
+            ...comment,
+            nestedReplies: updateCommentInTree(comment.nestedReplies)
+          };
+        }
+        return comment;
+      });
+    };
+    
+    // OPTIMISTIC UPDATE - рекурсивно обновляем дерево
+    setMessageReplies(prev => ({
+      ...prev,
+      [parentMessageId]: updateCommentInTree(prev[parentMessageId] || [])
+    }));
+    
+    try {
+      const response = await messageApi.toggleCommentReaction(commentId, emoji);
+      
+      // Рекурсивная функция для синхронизации с сервером
+      const syncCommentInTree = (comments: Message[]): Message[] => {
+        return comments.map(comment => {
+          if (comment.id === commentId) {
+            return {
+              ...comment,
+              reactions: response.data.reactions.reduce((acc: any, r: any) => {
+                acc[r.emoji] = { count: r.count, users: r.users };
+                return acc;
+              }, {}),
+              userReaction: response.data.userReaction
+            };
+          }
+          if (comment.nestedReplies && comment.nestedReplies.length > 0) {
+            return {
+              ...comment,
+              nestedReplies: syncCommentInTree(comment.nestedReplies)
+            };
+          }
+          return comment;
+        });
+      };
+      
+      // Sync with server - рекурсивно
+      setMessageReplies(prev => ({
+        ...prev,
+        [parentMessageId]: syncCommentInTree(prev[parentMessageId] || [])
+      }));
+    } catch (error) {
+      console.error('Error toggling comment reaction:', error);
+      
+      // Рекурсивная функция для rollback
+      const rollbackCommentInTree = (comments: Message[]): Message[] => {
+        return comments.map(comment => {
+          if (comment.id === commentId) {
+            return { ...comment, reactions: currentReactions, userReaction: currentUserReaction };
+          }
+          if (comment.nestedReplies && comment.nestedReplies.length > 0) {
+            return {
+              ...comment,
+              nestedReplies: rollbackCommentInTree(comment.nestedReplies)
+            };
+          }
+          return comment;
+        });
+      };
+      
+      // ROLLBACK - рекурсивно
+      setMessageReplies(prev => ({
+        ...prev,
+        [parentMessageId]: rollbackCommentInTree(prev[parentMessageId] || [])
+      }));
+      
+      showError('❌ Failed to update reaction. Please try again.');
     }
   };
 
@@ -1777,7 +2259,12 @@ const KolTechLine = () => {
                           ? 'bg-gradient-to-br from-primary-500/15 to-accent-purple/15 border border-primary-500/40 hover:border-primary-500/60 hover:shadow-primary-500/20'
                           : 'bg-gradient-to-br from-dark-800 to-dark-700 border border-dark-600 hover:border-primary-500/30 hover:shadow-dark-900/50'
                       }`}
-                      onMouseEnter={() => setShowReactionPicker(message.id)}
+                      onMouseEnter={() => {
+                        // Показываем реакции только если НЕ наводим на область комментариев
+                        if (!isHoveringComments) {
+                          setShowReactionPicker(message.id);
+                        }
+                      }}
                       onMouseLeave={() => setShowReactionPicker(null)}
                     >
                     {/* Message Header - Compact */}
@@ -1904,49 +2391,83 @@ const KolTechLine = () => {
                       
                       {/* Replies Section */}
                       {expandedReplies.has(message.id) && (
-                        <div className="mt-4 pl-4 border-l-2 border-dark-600 space-y-3">
+                        <div 
+                          className="mt-4 pl-4 border-l-2 border-primary-500/30 space-y-3"
+                          onMouseEnter={() => {
+                            setIsHoveringComments(message.id);
+                            setShowReactionPicker(null); // Скрываем реакции основного сообщения
+                          }}
+                          onMouseLeave={() => {
+                            setIsHoveringComments(null);
+                            setShowCommentReactionPicker(null); // Скрываем реакции комментариев
+                          }}
+                        >
                           {loadingReplies.has(message.id) ? (
-                            <div className="flex justify-center py-4">
-                              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                            </div>
-                          ) : (
-                            messageReplies[message.id]?.map((reply) => (
-                              <div key={reply.id} className="bg-dark-700/50 rounded-lg p-3">
-                                <div className="flex items-start space-x-2 mb-2">
-                                  <Link to={`/user/${reply.userId}`}>
-                                    <img
-                                      src={reply.avatar}
-                                      alt={reply.username}
-                                      className="w-6 h-6 rounded-full object-cover"
-                                    />
-                                  </Link>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2">
-                                      <Link to={`/user/${reply.userId}`}>
-                                        <span className="text-white text-sm font-medium hover:text-primary-400 transition-colors">
-                                          {reply.username}
-                                        </span>
-                                      </Link>
-                                      <span className="text-gray-500 text-xs">
-                                        {formatTime(reply.timestamp)}
-                                      </span>
-                                      {reply.isEdited && (
-                                        <span className="text-xs text-gray-500 bg-dark-600 px-1 py-0.5 rounded">
-                                          edited
-                                        </span>
-                                      )}
+                            /* Comment Skeleton Loading */
+                            <div className="space-y-3">
+                              {[1, 2, 3].map((i) => (
+                                <div
+                                  key={i}
+                                  className="rounded-xl p-3 bg-gradient-to-br from-dark-700/50 to-dark-800/50 border border-dark-600 animate-pulse"
+                                  style={{ animationDelay: `${i * 100}ms` }}
+                                >
+                                  <div className="flex items-start space-x-2">
+                                    {/* Avatar Skeleton */}
+                                    <div className="w-7 h-7 rounded-full bg-dark-600"></div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      {/* Name and Time Skeleton */}
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <div className="h-3 bg-dark-600 rounded w-20"></div>
+                                        <div className="h-2 bg-dark-600 rounded w-8"></div>
+                                      </div>
+                                      
+                                      {/* Content Skeleton */}
+                                      <div className="space-y-1.5">
+                                        <div className="h-2.5 bg-dark-600 rounded w-full"></div>
+                                        <div className="h-2.5 bg-dark-600 rounded w-4/5"></div>
+                                      </div>
                                     </div>
-                                    <p className="text-gray-300 text-sm mt-1">{reply.content}</p>
+                                  </div>
+                                  
+                                  {/* Reactions Skeleton */}
+                                  <div className="flex items-center gap-1.5 mt-2 ml-9">
+                                    <div className="h-5 bg-dark-600 rounded-full w-10"></div>
+                                    <div className="h-5 bg-dark-600 rounded-full w-10"></div>
                                   </div>
                                 </div>
-                              </div>
+                              ))}
+                            </div>
+                          ) : (
+                            messageReplies[message.id]?.map((comment) => (
+                              <Comment
+                                key={comment.id}
+                                comment={comment}
+                                parentMessageId={message.id}
+                                currentUserId={user?._id}
+                                isLoggedIn={isLoggedIn()}
+                                level={0}
+                                highlightedCommentId={highlightedCommentId}
+                                onReply={(commentId, username) => {
+                                  setReplyingToComment({ commentId, username, parentMessageId: message.id });
+                                  setNewMessage(`@${username} `);
+                                  textareaRef.current?.focus();
+                                }}
+                                onEdit={(comment) => handleEditComment(comment, message.id)}
+                                onDelete={(commentId) => handleDeleteComment(commentId, message.id)}
+                                onReaction={(commentId, emoji) => handleCommentReaction(commentId, emoji, message.id)}
+                                onStartChat={handleStartPrivateChat}
+                                onAddContact={handleAddContact}
+                                onReport={handleReport}
+                                formatTime={formatTime}
+                              />
                             ))
                           )}
                         </div>
                       )}
                       
-                      {/* Reaction Picker - компактный */}
-                      {showReactionPicker === message.id && (
+                      {/* Reaction Picker - компактный - показываем только если НЕ в области комментариев */}
+                      {showReactionPicker === message.id && !isHoveringComments && (
                           <div className="absolute left-0 top-full mt-1 bg-dark-700 border border-dark-600 rounded-full px-2 py-1.5 shadow-xl flex items-center gap-1 animate-scale-in z-50 reaction-picker-container">
                             {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
                               <button
@@ -1967,30 +2488,21 @@ const KolTechLine = () => {
                                   // Создаём новое состояние реакций
                                   const newReactions = { ...currentReactions };
                                   
-                                  // Если пользователь уже поставил эту реакцию - удаляем
-                                  if (currentUserReaction === emoji) {
-                                    if (newReactions[emoji]) {
-                                      newReactions[emoji] = {
-                                        count: Math.max(0, newReactions[emoji].count - 1),
-                                        users: newReactions[emoji].users.filter(id => id !== userId)
-                                      };
-                                      if (newReactions[emoji].count === 0) {
-                                        delete newReactions[emoji];
-                                      }
+                                  // ВАЖНО: Сначала удаляем старую реакцию пользователя (если есть)
+                                  // Это предотвращает "мерцание" когда обе реакции видны одновременно
+                                  if (currentUserReaction && newReactions[currentUserReaction]) {
+                                    newReactions[currentUserReaction] = {
+                                      count: Math.max(0, newReactions[currentUserReaction].count - 1),
+                                      users: newReactions[currentUserReaction].users.filter(id => id !== userId)
+                                    };
+                                    if (newReactions[currentUserReaction].count === 0) {
+                                      delete newReactions[currentUserReaction];
                                     }
-                                  } else {
-                                    // Удаляем старую реакцию пользователя если была
-                                    if (currentUserReaction && newReactions[currentUserReaction]) {
-                                      newReactions[currentUserReaction] = {
-                                        count: Math.max(0, newReactions[currentUserReaction].count - 1),
-                                        users: newReactions[currentUserReaction].users.filter(id => id !== userId)
-                                      };
-                                      if (newReactions[currentUserReaction].count === 0) {
-                                        delete newReactions[currentUserReaction];
-                                      }
-                                    }
-                                    
-                                    // Добавляем новую реакцию
+                                  }
+                                  
+                                  // Если пользователь кликнул на ту же реакцию - просто удаляем её (уже удалили выше)
+                                  // Если на другую - добавляем новую
+                                  if (currentUserReaction !== emoji) {
                                     if (newReactions[emoji]) {
                                       newReactions[emoji] = {
                                         count: newReactions[emoji].count + 1,
@@ -2289,8 +2801,33 @@ const KolTechLine = () => {
                     </div>
                   </div>
                   
-                  {/* Reply Banner - Modern */}
-                  {replyingTo && (
+                  {/* Reply to Comment Banner */}
+                  {replyingToComment && (
+                    <div className="mb-2 p-2 bg-gradient-to-r from-purple-500/10 to-purple-600/10 rounded-xl border-l-2 border-purple-400 shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          <MessageCircle className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-purple-400 text-xs font-medium">
+                              Reply to {replyingToComment.username}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setReplyingToComment(null);
+                            setNewMessage('');
+                          }}
+                          className="text-gray-400 hover:text-white transition-colors text-lg leading-none ml-2"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reply to Message Banner */}
+                  {replyingTo && !replyingToComment && (
                     <div className="mb-2 p-2 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-xl border-l-2 border-blue-400 shadow-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -2314,14 +2851,38 @@ const KolTechLine = () => {
                     </div>
                   )}
 
-                  {/* Edit Banner - Modern */}
-                  {editingMessage && (
+                  {/* Edit Comment Banner */}
+                  {editingComment && (
+                    <div className="mb-2 p-2 bg-gradient-to-r from-orange-500/10 to-orange-600/10 rounded-xl border-l-2 border-orange-400 shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Settings className="w-3 h-3 text-orange-400" />
+                          <p className="text-orange-400 text-xs font-medium">
+                            Editing comment
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingComment(null);
+                            setReplyingToComment(null);
+                            setNewMessage('');
+                          }}
+                          className="text-gray-400 hover:text-white text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Edit Message Banner */}
+                  {editingMessage && !editingComment && (
                     <div className="mb-2 p-2 bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 rounded-xl border-l-2 border-yellow-400 shadow-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Settings className="w-3 h-3 text-yellow-400" />
                           <p className="text-yellow-400 text-xs font-medium">
-                            Editing
+                            Editing message
                           </p>
                         </div>
                         <button

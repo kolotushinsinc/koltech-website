@@ -7,6 +7,9 @@ import {
   toggleMessageReaction,
   addComment,
   getMessageComments,
+  toggleCommentReaction,
+  updateComment,
+  deleteComment,
   updateMessage,
   deleteMessage,
   toggleMessagePin,
@@ -60,7 +63,8 @@ const messageIdSchema = Joi.object({
 });
 
 const addCommentSchema = Joi.object({
-  content: Joi.string().trim().min(1).max(2000).required()
+  content: Joi.string().trim().min(1).max(2000).required(),
+  parentCommentId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional()
 });
 
 const updateMessageSchema = Joi.object({
@@ -151,6 +155,27 @@ router.post(
   validateRequest(messageIdSchema, 'params'),
   validateRequest(reportMessageSchema),
   reportMessage
+);
+
+// Comment-specific routes
+router.post(
+  '/comments/:id/react',
+  validateRequest(messageIdSchema, 'params'),
+  validateRequest(reactionSchema),
+  toggleCommentReaction
+);
+
+router.put(
+  '/comments/:id',
+  validateRequest(messageIdSchema, 'params'),
+  validateRequest(addCommentSchema),
+  updateComment
+);
+
+router.delete(
+  '/comments/:id',
+  validateRequest(messageIdSchema, 'params'),
+  deleteComment
 );
 
 export default router;

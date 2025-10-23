@@ -285,7 +285,7 @@ export const toggleMessageReaction = async (req: Request, res: Response, next: N
 export const addComment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const messageId = req.params.id;
-    const { content } = req.body;
+    const { content, parentCommentId } = req.body;
     const userId = req.user!.id;
 
     const parentMessage = await Message.findById(messageId);
@@ -303,31 +303,75 @@ export const addComment = async (req: Request, res: Response, next: NextFunction
       return next(new AppError('Only wall members can comment', 403));
     }
 
+    // If parentCommentId is provided, verify it exists and belongs to the same message thread
+    if (parentCommentId) {
+      const parentComment = await Message.findById(parentCommentId);
+      if (!parentComment || parentComment.isDeleted) {
+        return next(new AppError('Parent comment not found', 404));
+      }
+      
+      // Verify parent comment belongs to the same message thread
+      // Need to traverse up the chain to find the root message
+      let currentComment = parentComment;
+      let rootMessageId = currentComment.parentMessage?.toString();
+      
+      // Traverse up to find the root message (max 10 levels to prevent infinite loops)
+      let depth = 0;
+      while (rootMessageId && depth < 10) {
+        const nextParent = await Message.findById(rootMessageId);
+        if (!nextParent) break;
+        
+        // If this parent has no parentMessage, it's the root message
+        if (!nextParent.parentMessage) {
+          rootMessageId = nextParent._id.toString();
+          break;
+        }
+        
+        // Otherwise, keep traversing up
+        rootMessageId = nextParent.parentMessage.toString();
+        depth++;
+      }
+      
+      // Verify the root message matches the messageId
+      if (rootMessageId !== messageId) {
+        return next(new AppError('Parent comment does not belong to this message thread', 400));
+      }
+    }
+
     // Create comment as a reply message
+    // If parentCommentId is provided, this is a nested reply
+    // Otherwise, it's a direct reply to the message
     const comment = await Message.create({
       content: content.trim(),
       author: userId,
       wall: parentMessage.wall,
-      parentMessage: messageId,
+      parentMessage: parentCommentId || messageId, // Use parentCommentId if provided, otherwise messageId
       visibility: parentMessage.visibility
     });
 
     await comment.populate('author', 'firstName lastName username avatar');
 
-    // Update parent message reply count
-    (parentMessage as any).addReply(comment._id.toString());
-    await parentMessage.save();
+    // Update parent message reply count (only for top-level comments)
+    if (!parentCommentId) {
+      (parentMessage as any).addReply(comment._id.toString());
+      await parentMessage.save();
+    }
 
     // Emit real-time update
     io.to(`wall_${parentMessage.wall}`).emit('new_comment', {
       comment: comment.toObject(),
-      parentMessageId: messageId
+      parentMessageId: messageId,
+      parentCommentId: parentCommentId || null
     });
 
-    // Create notification for message author
-    if (parentMessage.author.toString() !== userId) {
+    // Create notification for message author or parent comment author
+    const notificationRecipient = parentCommentId 
+      ? (await Message.findById(parentCommentId))?.author.toString()
+      : parentMessage.author.toString();
+      
+    if (notificationRecipient && notificationRecipient !== userId) {
       await (Notification as any).createCommentNotification(
-        parentMessage.author.toString(),
+        notificationRecipient,
         userId,
         comment._id.toString(),
         messageId
@@ -355,17 +399,60 @@ export const getMessageComments = async (req: Request, res: Response, next: Next
   try {
     const messageId = req.params.id;
     const { limit = 10, page = 1 } = req.query;
+    const userId = req.user?.id;
 
     const message = await Message.findById(messageId);
     if (!message || message.isDeleted) {
       return next(new AppError('Message not found', 404));
     }
 
-    const comments = await (Message as any).findReplies(messageId);
+    // Рекурсивная функция для загрузки всех вложенных комментариев
+    const loadAllNestedComments = async (parentIds: string[]): Promise<any[]> => {
+      if (parentIds.length === 0) return [];
+      
+      const comments = await Message.find({
+        parentMessage: { $in: parentIds },
+        isDeleted: false
+      })
+        .populate('author', 'firstName lastName username avatar')
+        .sort({ createdAt: 1 });
+      
+      if (comments.length === 0) return [];
+      
+      // Рекурсивно загружаем вложенные комментарии следующего уровня
+      const commentIds = comments.map(c => c._id.toString());
+      const nestedComments = await loadAllNestedComments(commentIds);
+      
+      return [...comments, ...nestedComments];
+    };
+    
+    // Сначала загружаем прямые ответы на сообщение
+    const directReplies = await Message.find({
+      parentMessage: messageId,
+      isDeleted: false
+    })
+      .populate('author', 'firstName lastName username avatar')
+      .sort({ createdAt: 1 });
+
+    // Затем рекурсивно загружаем ВСЕ вложенные комментарии
+    const directReplyIds = directReplies.map(r => r._id.toString());
+    const allNestedReplies = await loadAllNestedComments(directReplyIds);
+
+    // Объединяем все комментарии
+    const allComments = [...directReplies, ...allNestedReplies];
+    
+    // Add user reaction info to each comment if user is logged in
+    const commentsWithUserReaction = allComments.map((comment: any) => {
+      const commentObj = comment.toObject();
+      if (userId) {
+        commentObj.userReaction = comment.getUserReaction(userId);
+      }
+      return commentObj;
+    });
 
     const response: ApiResponse<{ comments: IMessage[] }> = {
       success: true,
-      data: { comments },
+      data: { comments: commentsWithUserReaction },
       message: 'Comments retrieved successfully'
     };
 
@@ -373,6 +460,188 @@ export const getMessageComments = async (req: Request, res: Response, next: Next
   } catch (error: any) {
     console.error('Error getting message comments:', error);
     const errorMessage = error?.message || 'Failed to get message comments';
+    next(new AppError(errorMessage, 400));
+  }
+};
+
+// @desc    Add/Remove reaction to comment
+// @route   POST /api/messages/comments/:id/react
+// @access  Private
+export const toggleCommentReaction = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const commentId = req.params.id;
+    const { emoji } = req.body;
+    const userId = req.user!.id;
+
+    if (!emoji || typeof emoji !== 'string') {
+      return next(new AppError('Emoji is required', 400));
+    }
+
+    const comment = await Message.findById(commentId);
+    if (!comment || comment.isDeleted) {
+      return next(new AppError('Comment not found', 404));
+    }
+
+    // Verify this is actually a comment (has parentMessage)
+    if (!comment.parentMessage) {
+      return next(new AppError('This is not a comment', 400));
+    }
+
+    // Toggle reaction
+    (comment as any).toggleReaction(userId, emoji);
+    await comment.save();
+
+    // Get user's current reaction
+    const userReaction = (comment as any).getUserReaction(userId);
+
+    // Create notification for comment author if adding reaction
+    if (userReaction && comment.author.toString() !== userId) {
+      await (Notification as any).createLikeNotification(
+        comment.author.toString(),
+        userId,
+        commentId
+      );
+    }
+
+    // Emit real-time update to wall
+    io.to(`wall_${comment.wall}`).emit('comment_reaction_updated', {
+      commentId,
+      parentMessageId: comment.parentMessage,
+      reactions: comment.reactions,
+      userId,
+      userReaction
+    });
+
+    const response: ApiResponse<{ 
+      comment: IMessage; 
+      userReaction: string | null;
+      reactions: any[];
+    }> = {
+      success: true,
+      data: { 
+        comment, 
+        userReaction,
+        reactions: comment.reactions || []
+      },
+      message: userReaction ? 'Reaction added' : 'Reaction removed'
+    };
+
+    res.status(200).json(response);
+  } catch (error: any) {
+    console.error('Error toggling comment reaction:', error);
+    const errorMessage = error?.message || 'Failed to toggle comment reaction';
+    next(new AppError(errorMessage, 400));
+  }
+};
+
+// @desc    Update comment
+// @route   PUT /api/messages/comments/:id
+// @access  Private (Author only)
+export const updateComment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const commentId = req.params.id;
+    const { content } = req.body;
+    const userId = req.user!.id;
+
+    const comment = await Message.findById(commentId);
+    if (!comment || comment.isDeleted) {
+      return next(new AppError('Comment not found', 404));
+    }
+
+    // Verify this is actually a comment
+    if (!comment.parentMessage) {
+      return next(new AppError('This is not a comment', 400));
+    }
+
+    // Only author can edit
+    if (comment.author.toString() !== userId) {
+      return next(new AppError('Only comment author can edit', 403));
+    }
+
+    // Update comment
+    if (content) comment.content = content.trim();
+    await comment.save();
+
+    // Emit real-time update
+    io.to(`wall_${comment.wall}`).emit('comment_updated', {
+      commentId,
+      parentMessageId: comment.parentMessage,
+      content: comment.content,
+      isEdited: comment.isEdited,
+      editedAt: comment.editedAt
+    });
+
+    const response: ApiResponse<{ comment: IMessage }> = {
+      success: true,
+      data: { comment },
+      message: 'Comment updated successfully'
+    };
+
+    res.status(200).json(response);
+  } catch (error: any) {
+    console.error('Error updating comment:', error);
+    const errorMessage = error?.message || 'Failed to update comment';
+    next(new AppError(errorMessage, 400));
+  }
+};
+
+// @desc    Delete comment
+// @route   DELETE /api/messages/comments/:id
+// @access  Private (Author or Wall Admin)
+export const deleteComment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const commentId = req.params.id;
+    const userId = req.user!.id;
+
+    const comment = await Message.findById(commentId);
+    if (!comment || comment.isDeleted) {
+      return next(new AppError('Comment not found', 404));
+    }
+
+    // Verify this is actually a comment
+    if (!comment.parentMessage) {
+      return next(new AppError('This is not a comment', 400));
+    }
+
+    // Check permissions (author or wall admin)
+    const wall = await Wall.findById(comment.wall);
+    const isAuthor = comment.author.toString() === userId;
+    const isWallAdmin = wall && (wall as any).isAdmin(userId);
+
+    if (!isAuthor && !isWallAdmin) {
+      return next(new AppError('Not authorized to delete this comment', 403));
+    }
+
+    // Get parent message to update reply count
+    const parentMessage = await Message.findById(comment.parentMessage);
+    
+    // Soft delete
+    (comment as any).softDelete(userId);
+    await comment.save();
+
+    // Update parent message reply count
+    if (parentMessage) {
+      (parentMessage as any).removeReply(commentId);
+      await parentMessage.save();
+    }
+
+    // Emit real-time update
+    io.to(`wall_${comment.wall}`).emit('comment_deleted', {
+      commentId,
+      parentMessageId: comment.parentMessage,
+      deletedBy: userId
+    });
+
+    const response: ApiResponse<{ message: string }> = {
+      success: true,
+      data: { message: 'Comment deleted successfully' },
+      message: 'Comment deleted successfully'
+    };
+
+    res.status(200).json(response);
+  } catch (error: any) {
+    console.error('Error deleting comment:', error);
+    const errorMessage = error?.message || 'Failed to delete comment';
     next(new AppError(errorMessage, 400));
   }
 };

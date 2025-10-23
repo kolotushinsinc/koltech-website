@@ -248,10 +248,10 @@ export const messageApi = {
     }),
 
   // Add comment
-  addComment: (messageId: string, content: string) => 
+  addComment: (messageId: string, content: string, parentCommentId?: string) => 
     apiRequest(`/messages/${messageId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, parentCommentId }),
     }),
 
   // Get comments
@@ -278,7 +278,26 @@ export const messageApi = {
     apiRequest(`/messages/${messageId}/report`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
-    })
+    }),
+
+  // Comment-specific methods
+  // Add/remove reaction to comment
+  toggleCommentReaction: (commentId: string, emoji: string) =>
+    apiRequest(`/messages/comments/${commentId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    }),
+
+  // Update comment
+  updateComment: (commentId: string, content: string) =>
+    apiRequest(`/messages/comments/${commentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+
+  // Delete comment
+  deleteComment: (commentId: string) =>
+    apiRequest(`/messages/comments/${commentId}`, { method: 'DELETE' })
 };
 
 // Chat API
