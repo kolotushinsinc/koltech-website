@@ -175,7 +175,7 @@ const Comment: React.FC<CommentProps> = ({
 
               {/* Comment Reaction Picker - Под текстом, как у сообщений */}
               {showReactionPicker && (
-                <div className="absolute left-0 top-full mt-1 bg-dark-700 border border-dark-600 rounded-full px-2 py-1.5 shadow-xl flex items-center gap-1 animate-scale-in z-50">
+                <div className="absolute left-0 top-full mt-1 bg-dark-700 border border-dark-600 rounded-full px-2 py-1.5 shadow-xl flex items-center gap-1 animate-scale-in z-10">
                   {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
                     <button
                       key={emoji}

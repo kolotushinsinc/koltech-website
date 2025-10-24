@@ -13,6 +13,7 @@ import UserProfile from './pages/UserProfile';
 import SinglePost from './pages/SinglePost';
 import Settings from './pages/Settings';
 import KolTechLine from './pages/KolTechLine';
+import KolTechLineNew from './pages/KolTechLine.new';
 import Chat from './pages/Chat';
 import Chats from './pages/Chats';
 import ToastProvider from './components/ui/ToastProvider';
@@ -71,6 +72,10 @@ function AppContent() {
         
         {/* Настройки */}
         <Route path="/settings" element={<Settings />} />
+        
+        {/* KolTechLine NEW - тестовая версия рефакторинга (ДОЛЖЕН БЫТЬ ПЕРЕД /koltech-line) */}
+        <Route path="/koltech-line-new" element={<KolTechLineNew />} />
+        <Route path="/koltech-line-new/:wallId" element={<KolTechLineNew />} />
         
         {/* KolTechLine - основная страница */}
         <Route path="/koltech-line" element={<KolTechLine />} />
