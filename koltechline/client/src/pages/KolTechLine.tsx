@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import Header from '../components/Header';
 import Comment from '../components/Comment';
+import ImageCarousel from '../components/ImageCarousel';
 import AuthModal from '../components/ui/AuthModal';
 import CreateWallModal from '../components/ui/CreateWallModal';
 import ImageGalleryModal from '../components/ui/ImageGalleryModal';
@@ -2340,52 +2341,12 @@ const KolTechLine = () => {
                         {/* Message Content */}
                         <p className="text-gray-300 leading-relaxed text-sm">{message.content}</p>
                       
-                      {/* Attachments */}
+                      {/* Attachments - Modern Carousel with Blur Background */}
                       {message.attachments && message.attachments.length > 0 && (
-                        <div className="mt-4">
-                          <div className={`grid gap-3 ${
-                            message.attachments.length === 1 ? 'grid-cols-1' :
-                            message.attachments.length === 2 ? 'grid-cols-2' :
-                            message.attachments.length === 3 ? 'grid-cols-3' :
-                            'grid-cols-2 sm:grid-cols-3'
-                          }`}>
-                            {message.attachments.map((attachment, index) => (
-                              <div key={index} className="rounded-xl overflow-hidden relative group">
-                                {attachment.type === 'image' && (
-                                  <img
-                                    src={attachment.url.startsWith('http') ? attachment.url : `http://localhost:5005${attachment.url}`}
-                                    alt={attachment.filename || 'Attachment'}
-                                    className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
-                                    onClick={() => openImageGallery(message, index)}
-                                  />
-                                )}
-                                {attachment.type === 'video' && (
-                                  <div className="relative">
-                                    <video
-                                      src={attachment.url.startsWith('http') ? attachment.url : `http://localhost:5005${attachment.url}`}
-                                      className="w-full h-48 object-cover rounded-xl cursor-pointer"
-                                      preload="metadata"
-                                      onClick={() => openImageGallery(message, index)}
-                                    />
-                                    {/* Video play overlay */}
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                                        <div className="w-0 h-0 border-l-[8px] border-l-white border-y-[6px] border-y-transparent ml-1"></div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* Multiple files indicator */}
-                                {message.attachments && message.attachments.length > 1 && index === 0 && (
-                                  <div className="absolute top-2 right-2 bg-dark-800/80 text-white px-2 py-1 rounded text-xs">
-                                    +{message.attachments.length - 1} more
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        <ImageCarousel
+                          attachments={message.attachments}
+                          onImageClick={(index) => openImageGallery(message, index)}
+                        />
                       )}
 
                         {/* Tags */}
