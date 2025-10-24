@@ -103,6 +103,7 @@ export const useSocket = () => {
   const subscribeToEvents = useCallback((handlers: {
     onMessageReceived?: (data: any) => void;
     onCallReceived?: (data: any) => void;
+    onVideoProcessed?: (data: any) => void;
   }) => {
     if (!globalSocket) return;
 
@@ -112,6 +113,7 @@ export const useSocket = () => {
     globalSocket.off('new_message'); // For chat messages
     globalSocket.off('message_like_updated');
     globalSocket.off('new_comment');
+    globalSocket.off('message_video_processed');
     globalSocket.off('kolophone_call_started');
     globalSocket.off('kolophone_incoming_call');
 
@@ -140,6 +142,13 @@ export const useSocket = () => {
       });
       globalSocket.on('new_comment', (data) => {
         handlers.onMessageReceived!({ type: 'new_comment', ...data });
+      });
+    }
+
+    if (handlers.onVideoProcessed) {
+      globalSocket.on('message_video_processed', (data) => {
+        console.log('🎬 Video processing completed:', data);
+        handlers.onVideoProcessed!(data);
       });
     }
 

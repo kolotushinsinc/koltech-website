@@ -9,6 +9,8 @@ export interface Message {
     type: 'image' | 'video' | 'gif' | 'sticker' | 'file';
     url: string;
     filename?: string;
+    isHLS?: boolean;
+    originalUrl?: string;
   }[];
   likes: number;
   replies: number;

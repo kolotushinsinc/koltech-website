@@ -127,7 +127,8 @@ const MessageCard: React.FC<MessageCardProps> = ({
               .map(att => ({
                 type: att.type as 'image' | 'video' | 'gif' | 'sticker',
                 url: att.url,
-                filename: att.filename
+                filename: att.filename,
+                isHLS: att.isHLS || false
               }))}
             onImageClick={(index) => onImageClick(message, index)}
           />

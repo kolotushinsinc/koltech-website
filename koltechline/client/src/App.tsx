@@ -19,6 +19,7 @@ import Chats from './pages/Chats';
 import ToastProvider from './components/ui/ToastProvider';
 import LogoutConfirmModal from './components/ui/LogoutConfirmModal';
 import { QueryProvider } from './providers/QueryProvider';
+import { VideoPlaybackProvider } from './contexts/VideoPlaybackContext';
 import { useModalStore } from './store/modalStore';
 import { useAuthStore } from './store/authStore';
 import toast from 'react-hot-toast';
@@ -121,9 +122,11 @@ function AppContent() {
 function App() {
   return (
     <QueryProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <VideoPlaybackProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </VideoPlaybackProvider>
     </QueryProvider>
   );
 }

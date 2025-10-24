@@ -6,6 +6,7 @@ export interface IAttachment {
   filename?: string;
   size?: number;
   mimetype?: string;
+  isHLS?: boolean;
 }
 
 export interface IReaction {
@@ -43,7 +44,7 @@ export interface IMessage extends Document {
 }
 
 const attachmentSchema = new Schema<IAttachment>({
-  type: {
+type: {
     type: String,
     enum: ['image', 'video', 'gif', 'sticker', 'file'],
     required: true
@@ -54,7 +55,11 @@ const attachmentSchema = new Schema<IAttachment>({
   },
   filename: String,
   size: Number,
-  mimetype: String
+  mimetype: String,
+  isHLS: {
+    type: Boolean,
+    default: false
+  }
 }, { _id: false });
 
 const reactionSchema = new Schema<IReaction>({

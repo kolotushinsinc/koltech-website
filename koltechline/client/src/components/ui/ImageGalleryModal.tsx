@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Download, ExternalLink, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import CustomVideoPlayer from '../CustomVideoPlayer';
+import { useVideoPlayback } from '../../contexts/VideoPlaybackContext';
 
 interface ImageGalleryModalProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
   onDownloadSuccess,
   autoRotate = false
 }) => {
+  const { setModalOpen } = useVideoPlayback();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -36,6 +39,16 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
     setZoom(1);
     setPosition({ x: 0, y: 0 });
   }, [initialIndex]);
+
+  // Notify context when modal opens/closes
+  useEffect(() => {
+    setModalOpen(isOpen);
+    
+    return () => {
+      // Cleanup when component unmounts
+      setModalOpen(false);
+    };
+  }, [isOpen, setModalOpen]);
 
   // Reset zoom when changing images
   useEffect(() => {
@@ -308,16 +321,16 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
               }}
             />
           ) : (
-            <video
-              src={imageUrl}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              controls
-              autoPlay
-              style={{
-                transform: `scale(${zoom})`,
-              }}
+            <div 
+              className="max-w-full max-h-full w-full h-full flex items-center justify-center"
               onClick={(e) => e.stopPropagation()}
-            />
+            >
+              <CustomVideoPlayer
+                src={imageUrl}
+                className="w-full h-full max-h-[80vh]"
+                autoPlay={true}
+              />
+            </div>
           )}
         </div>
       </div>

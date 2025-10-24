@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import VideoPreview from './VideoPreview';
 
 interface ImageCarouselProps {
   attachments: {
     type: 'image' | 'video' | 'gif' | 'sticker';
     url: string;
     filename?: string;
+    isHLS?: boolean;
   }[];
   onImageClick: (index: number) => void;
 }
@@ -55,11 +57,14 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ attachments, onImageClick
               className="max-w-full max-h-full object-contain relative z-10"
             />
           ) : (
-            <video
-              src={imageUrl}
-              className="max-w-full max-h-full object-contain relative z-10"
-              preload="metadata"
-            />
+            <div className="w-full h-full relative z-10">
+              <VideoPreview
+                src={imageUrl}
+                isHLS={currentAttachment.isHLS}
+                className="w-full h-full"
+                onClick={() => onImageClick(currentIndex)}
+              />
+            </div>
           )}
         </div>
 

@@ -30,7 +30,8 @@ const createMessageSchema = Joi.object({
       url: Joi.string().required(), // Allow relative paths, not just URIs
       filename: Joi.string().optional(),
       size: Joi.number().integer().min(0).optional(),
-      mimetype: Joi.string().optional()
+      mimetype: Joi.string().optional(),
+      isHLS: Joi.boolean().optional()
     })
   ).optional(),
   tags: Joi.array().items(
@@ -71,7 +72,8 @@ const addCommentSchema = Joi.object({
       url: Joi.string().required(),
       filename: Joi.string().optional(),
       size: Joi.number().integer().min(0).optional(),
-      mimetype: Joi.string().optional()
+      mimetype: Joi.string().optional(),
+      isHLS: Joi.boolean().optional()
     })
   ).optional()
 }).custom((value, helpers) => {

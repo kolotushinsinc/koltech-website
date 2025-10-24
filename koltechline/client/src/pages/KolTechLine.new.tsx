@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { X } from 'lucide-react';
+import { useVideoPlayback } from '../contexts/VideoPlaybackContext';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
 import { useToast } from '../hooks/useToast';
 import { useModalStore } from '../store/modalStore';
+import { useVideoUpload } from '../hooks/useVideoUpload';
 
 // New modular hooks
 import { useWalls } from '../hooks/koltech-line/useWalls';
@@ -35,7 +37,7 @@ import Toast from '../components/ui/Toast';
 
 // Utils & Types
 import { categories } from '../utils/koltech-line/constants';
-import { wallApi, chatApi, contactApi, kolophoneApi } from '../utils/api';
+import { wallApi, chatApi, contactApi, kolophoneApi, fileApi, messageApi } from '../utils/api';
 import type { Message, ReplyToData, ReplyToCommentData, EditingMessageData, EditingCommentData, ImageGalleryModalData } from '../types/koltech-line';
 
 const KolTechLineNew = () => {
@@ -50,13 +52,22 @@ const KolTechLineNew = () => {
   const wallsHook = useWalls({ userId: user?._id, selectedCategory: 'all' });
   const messagesHook = useMessages({ wallId: wallId || '', userId: user?._id });
   const fileUploadHook = useFileUpload((msg) => showWarning(msg));
+  const videoUploadHook = useVideoUpload();
   const messageActionsHook = useMessageActions({ userId: user?._id, onSuccess: showSuccess, onError: showError });
   const commentActionsHook = useCommentActions({ userId: user?._id, onError: showError });
 
+  // Video playback context
+  const { setSidebarOpen } = useVideoPlayback();
+  
   // Local UI state
   const [newMessage, setNewMessage] = useState('');
   const [showWalls, setShowWalls] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  
+  // Notify video context when sidebar opens/closes
+  useEffect(() => {
+    setSidebarOpen(showWalls);
+  }, [showWalls, setSidebarOpen]);
   const [wallSearchQuery, setWallSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -67,6 +78,7 @@ const KolTechLineNew = () => {
   const [imageGalleryModal, setImageGalleryModal] = useState<ImageGalleryModalData | null>(null);
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const [isHoveringComments, setIsHoveringComments] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const currentWall = wallsHook.allWalls.find(w => w.id === wallId);
 
@@ -99,12 +111,35 @@ const KolTechLineNew = () => {
           if (data.type === 'incoming_call') {
             showInfo(`📞 Incoming call from ${data.caller.name}`);
           }
+        },
+        onVideoProcessed: (data: any) => {
+          console.log('🎬 Video processed event received:', data);
+          
+          // Update message with HLS path
+          const message = messagesHook.messages.find(m => m.id === data.messageId);
+          if (message && message.attachments) {
+            const updatedAttachments = [...message.attachments];
+            if (updatedAttachments[data.attachmentIndex]) {
+              updatedAttachments[data.attachmentIndex] = {
+                ...updatedAttachments[data.attachmentIndex],
+                url: data.hlsPath,
+                isHLS: true
+              };
+              
+              messagesHook.updateMessage(data.messageId, {
+                ...message,
+                attachments: updatedAttachments
+              });
+              
+              showSuccess('Video quality options now available!');
+            }
+          }
         }
       });
 
       joinNotifications();
     }
-  }, [isConnected, socket]);
+  }, [isConnected, socket, messagesHook.messages]);
 
   // Join wall via socket
   useEffect(() => {
@@ -116,7 +151,7 @@ const KolTechLineNew = () => {
   // Handlers
   const handleSendMessage = async () => {
     if (editingComment) {
-      await commentActionsHook.createComment(
+      const commentId = await commentActionsHook.createComment(
         replyingToComment!.parentMessageId,
         newMessage.trim(),
         replyingToComment!.commentId,
@@ -125,6 +160,16 @@ const KolTechLineNew = () => {
       setNewMessage('');
       setEditingComment(null);
       setReplyingToComment(null);
+      
+      // Scroll to comment
+      if (commentId) {
+        setTimeout(() => {
+          const commentElement = document.getElementById(`comment-${commentId.id}`);
+          if (commentElement) {
+            commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, replyingToComment!.commentId ? 800 : 100);
+      }
       return;
     }
 
@@ -136,21 +181,63 @@ const KolTechLineNew = () => {
     }
 
     if (replyingToComment) {
-      await commentActionsHook.createComment(
+      const commentId = await commentActionsHook.createComment(
         replyingToComment.parentMessageId,
         newMessage.trim(),
         replyingToComment.commentId,
         []
       );
+      
+      // Update message replies count optimistically
+      if (commentId) {
+        const currentMessage = messagesHook.messages.find(m => m.id === replyingToComment.parentMessageId);
+        if (currentMessage) {
+          messagesHook.updateMessage(replyingToComment.parentMessageId, {
+            replies: currentMessage.replies + 1
+          });
+        }
+      }
+      
       setNewMessage('');
       setReplyingToComment(null);
+      
+      // Scroll to comment
+      if (commentId) {
+        setTimeout(() => {
+          const commentElement = document.getElementById(`comment-${commentId.id}`);
+          if (commentElement) {
+            commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, replyingToComment.commentId ? 800 : 100);
+      }
       return;
     }
 
     if (replyingTo) {
-      await commentActionsHook.createComment(replyingTo.messageId, newMessage.trim());
+      const commentId = await commentActionsHook.createComment(replyingTo.messageId, newMessage.trim());
+      
+      // Update message replies count optimistically
+      if (commentId) {
+        const currentMessage = messagesHook.messages.find(m => m.id === replyingTo.messageId);
+        if (currentMessage) {
+          messagesHook.updateMessage(replyingTo.messageId, {
+            replies: currentMessage.replies + 1
+          });
+        }
+      }
+      
       setNewMessage('');
       setReplyingTo(null);
+      
+      // Scroll to comment
+      if (commentId) {
+        setTimeout(() => {
+          const commentElement = document.getElementById(`comment-${commentId.id}`);
+          if (commentElement) {
+            commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
       return;
     }
 
@@ -174,16 +261,124 @@ const KolTechLineNew = () => {
       return;
     }
 
-    const realMessage = await messageActionsHook.handleSendMessage(
-      { content: newMessage, wallId, attachments: [], tags: [] },
-      fileUploadHook.selectedFiles,
-      messagesHook.addMessage
-    );
+    // Check if there are video files
+    const videoFiles = fileUploadHook.selectedFiles.filter(f => f.type.startsWith('video/'));
+    const otherFiles = fileUploadHook.selectedFiles.filter(f => !f.type.startsWith('video/'));
 
-    if (realMessage) {
-      messagesHook.updateMessage(realMessage.id, realMessage);
-      setNewMessage('');
-      fileUploadHook.clearFiles();
+    // If there are videos, process them first
+    if (videoFiles.length > 0) {
+      try {
+        // Upload and process video
+        const result = await videoUploadHook.uploadVideo(videoFiles[0]);
+        
+        if (!result) {
+          showError('Video upload failed');
+          return;
+        }
+
+        // Upload other files if any
+        const otherAttachments = [];
+        for (const file of otherFiles) {
+          // Upload images normally
+          if (file.type.startsWith('image/')) {
+            const uploadResponse = await fileApi.uploadImage(file, { compress: true, width: 800 });
+            if (uploadResponse?.data?.file) {
+              otherAttachments.push({
+                type: 'image',
+                url: uploadResponse.data.file.url,
+                filename: uploadResponse.data.file.originalName || uploadResponse.data.file.filename
+              });
+            }
+          }
+        }
+
+        // Create message with HLS video
+        const messageData = {
+          content: newMessage.trim(),
+          wallId,
+          attachments: [
+            {
+              type: 'video',
+              url: result.hlsPath,
+              isHLS: true
+            },
+            ...otherAttachments
+          ],
+          tags: []
+        };
+
+        const response = await messageApi.createMessage(messageData);
+        
+        const realMessage: Message = {
+          id: response.data.message._id,
+          userId: response.data.message.author._id,
+          username: `${response.data.message.author.firstName} ${response.data.message.author.lastName}`,
+          avatar: response.data.message.author.avatar 
+            ? `http://localhost:5005${response.data.message.author.avatar}` 
+            : '',
+          content: response.data.message.content,
+          timestamp: new Date(response.data.message.createdAt),
+          attachments: response.data.message.attachments || [],
+          likes: 0,
+          replies: 0,
+          tags: response.data.message.tags || [],
+          isLiked: false,
+          isEdited: false
+        };
+
+        messagesHook.addMessage(realMessage);
+        setNewMessage('');
+        fileUploadHook.clearFiles();
+        videoUploadHook.reset();
+        showSuccess('Message posted with video!');
+        
+        // Highlight and scroll to new message - scroll to user position
+        setHighlightedMessageId(realMessage.id);
+        setTimeout(() => {
+          // Scroll to bottom where user's new message appears
+          const messagesContainer = document.querySelector('.overflow-y-auto');
+          if (messagesContainer) {
+            messagesContainer.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }, 100);
+        
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 2000);
+      } catch (error: any) {
+        showError(`Error posting message: ${error.message}`);
+      }
+    } else {
+      // No videos, use normal flow
+      const realMessage = await messageActionsHook.handleSendMessage(
+        { content: newMessage, wallId, attachments: [], tags: [] },
+        fileUploadHook.selectedFiles,
+        (tempMessage) => {
+          // Don't add optimistic message, wait for real one
+        }
+      );
+
+      if (realMessage) {
+        messagesHook.addMessage(realMessage);
+        setNewMessage('');
+        fileUploadHook.clearFiles();
+        
+        // Highlight and scroll to new message - scroll to user position (top since messages are reversed)
+        setHighlightedMessageId(realMessage.id);
+        setTimeout(() => {
+          // Scroll to top where user's new message appears
+          const messagesContainer = document.querySelector('.overflow-y-auto');
+          if (messagesContainer) {
+            messagesContainer.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }, 100);
+        
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 2000);
+      }
     }
   };
 
@@ -328,8 +523,16 @@ const KolTechLineNew = () => {
                       ) : (
                         <>
                         {messagesHook.messages.map((message) => (
-                          <MessageCard
+                          <div
                             key={message.id}
+                            id={`message-${message.id}`}
+                            className={`transition-all duration-300 ${
+                              highlightedMessageId === message.id 
+                                ? 'ring-2 ring-primary-500 rounded-xl' 
+                                : ''
+                            }`}
+                          >
+                          <MessageCard
                             message={message}
                             currentUserId={user?._id}
                             isLoggedIn={isLoggedIn()}
@@ -423,6 +626,7 @@ const KolTechLineNew = () => {
                               </div>
                             )}
                           </MessageCard>
+                          </div>
                         ))}
                         
                         {/* Loading More Skeletons */}
@@ -566,7 +770,11 @@ const KolTechLineNew = () => {
           currentWall={currentWall}
           isLoggedIn={isLoggedIn()}
           isMember={currentWall?.isMember || false}
-          sendingMessage={false}
+          sendingMessage={videoUploadHook.isUploading}
+          videoUploadProgress={videoUploadHook.progress}
+          videoUploadStatus={videoUploadHook.status}
+          videoUploadThumbnail={videoUploadHook.thumbnail}
+          onCancelVideoUpload={videoUploadHook.cancelUpload}
           onCancelReply={() => {
             setReplyingTo(null);
             setReplyingToComment(null);

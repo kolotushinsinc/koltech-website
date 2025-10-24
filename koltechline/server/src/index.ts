@@ -23,6 +23,7 @@ import tagRoutes from './routes/tagRoutes.js';
 import fileRoutes from './routes/fileRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
+import videoRoutes from './routes/videoRoutes.js';
 // import adminRoutes from './routes/adminRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -144,6 +145,7 @@ app.use('/api/tags', tagRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/videos', videoRoutes);
 // app.use('/api/admin', adminRoutes);
 
 // Setup Socket.IO

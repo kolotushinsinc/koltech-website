@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Send, Paperclip, X, MessageCircle, Settings, UserPlus } from 'lucide-react';
 import { FilePreview, ReplyToData, ReplyToCommentData, EditingMessageData, EditingCommentData, Wall } from '../../types/koltech-line';
+import VideoUploadProgress from '../VideoUploadProgress';
 
 interface MessageInputProps {
   value: string;
@@ -28,6 +29,12 @@ interface MessageInputProps {
   isLoggedIn: boolean;
   isMember: boolean;
   sendingMessage: boolean;
+  
+  // Video upload progress
+  videoUploadProgress?: number;
+  videoUploadStatus?: string;
+  videoUploadThumbnail?: string | null;
+  onCancelVideoUpload?: () => void;
   
   // Actions
   onCancelReply: () => void;
@@ -59,6 +66,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isLoggedIn,
   isMember,
   sendingMessage,
+  videoUploadProgress,
+  videoUploadStatus,
+  videoUploadThumbnail,
+  onCancelVideoUpload,
   onCancelReply,
   onCancelEdit,
   onJoinWall,
@@ -261,8 +272,20 @@ const MessageInput: React.FC<MessageInputProps> = ({
             </div>
           )}
           
+          {/* Video Upload Progress */}
+          {sendingMessage && videoUploadProgress !== undefined && videoUploadStatus && onCancelVideoUpload && (
+            <div className="mb-2">
+              <VideoUploadProgress
+                progress={videoUploadProgress}
+                status={videoUploadStatus}
+                thumbnail={videoUploadThumbnail || undefined}
+                onCancel={onCancelVideoUpload}
+              />
+            </div>
+          )}
+
           {/* Selected Files Preview */}
-          {filePreviews.length > 0 && (
+          {filePreviews.length > 0 && !sendingMessage && (
             <div className="mb-2 p-2 bg-gradient-to-br from-dark-600 to-dark-700 rounded-xl border border-dark-500 shadow-lg">
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                 {filePreviews.map((preview, index) => (

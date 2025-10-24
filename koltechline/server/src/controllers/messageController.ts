@@ -9,6 +9,14 @@ import { io } from '../index.js';
 import CommentService from '../services/CommentService.js';
 import ReactionService from '../services/ReactionService.js';
 import NotificationService from '../services/NotificationService.js';
+import VideoProcessingService from '../services/VideoProcessingService.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // @desc    Create message in wall
 // @route   POST /api/messages
@@ -73,6 +81,57 @@ export const createMessage = async (req: Request, res: Response, next: NextFunct
       tags: sanitizedTags,
       visibility: visibility || 'members'
     });
+
+    // Process video attachments in background
+    if (sanitizedAttachments.length > 0) {
+      sanitizedAttachments.forEach(async (attachment: any, index: number) => {
+        if (attachment.type === 'video' && attachment.url) {
+          try {
+            // Generate unique video ID
+            const videoId = `${message._id}-${index}-${Date.now()}`;
+            
+            // Get full path to video file
+            const videoPath = path.join(__dirname, '../../', attachment.url);
+            
+            console.log(`🎬 Processing video: ${videoPath} → ${videoId}`);
+            
+            // Process video to HLS (async, don't wait)
+            VideoProcessingService.processVideoToHLS(videoPath, videoId)
+              .then(async (hlsPath) => {
+                console.log(`✅ Video processed successfully: ${hlsPath}`);
+                
+                // Update message attachment with HLS path
+                const updatedMessage = await Message.findById(message._id);
+                if (updatedMessage && updatedMessage.attachments) {
+                  updatedMessage.attachments[index] = {
+                    ...attachment,
+                    url: hlsPath,
+                    originalUrl: attachment.url, // Keep original for fallback
+                    isHLS: true
+                  };
+                  await updatedMessage.save();
+                  
+                  // Emit update to clients
+                  io.to(`wall_${wallId}`).emit('message_video_processed', {
+                    messageId: message._id,
+                    attachmentIndex: index,
+                    hlsPath,
+                    videoId
+                  });
+                  
+                  console.log(`📤 Emitted video processing complete for message ${message._id}`);
+                }
+              })
+              .catch((error) => {
+                console.error(`❌ Error processing video ${videoId}:`, error);
+                // Video processing failed, but message is still created with original video
+              });
+          } catch (error) {
+            console.error('Error initiating video processing:', error);
+          }
+        }
+      });
+    }
 
     await message.populate('author', 'firstName lastName username avatar');
     await message.populate('wall', 'name');
