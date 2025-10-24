@@ -248,10 +248,10 @@ export const messageApi = {
     }),
 
   // Add comment
-  addComment: (messageId: string, content: string, parentCommentId?: string) => 
+  addComment: (messageId: string, content: string, parentCommentId?: string, attachments?: any[]) => 
     apiRequest(`/messages/${messageId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content, parentCommentId }),
+      body: JSON.stringify({ content, parentCommentId, attachments }),
     }),
 
   // Get comments

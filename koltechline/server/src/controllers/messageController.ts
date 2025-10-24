@@ -299,7 +299,7 @@ export const toggleMessageReaction = async (req: Request, res: Response, next: N
 export const addComment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const messageId = req.params.id;
-    const { content, parentCommentId } = req.body;
+    const { content, parentCommentId, attachments } = req.body;
     const userId = req.user!.id;
 
     // Use CommentService to create comment
@@ -307,7 +307,8 @@ export const addComment = async (req: Request, res: Response, next: NextFunction
       content,
       authorId: userId,
       messageId,
-      parentCommentId
+      parentCommentId,
+      attachments: attachments || []
     });
 
     // Get parent message for wall ID

@@ -29,10 +29,10 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ attachments, onImageClick
     : `http://localhost:5005${currentAttachment.url}`;
 
   return (
-    <div className="mt-4 relative group">
+    <div className="relative group">
       {/* Carousel Container with Blur Background */}
       <div 
-        className="relative rounded-xl overflow-hidden bg-dark-900 cursor-pointer"
+        className="relative overflow-hidden bg-dark-900 cursor-pointer"
         style={{ height: '400px' }}
         onClick={() => onImageClick(currentIndex)}
       >

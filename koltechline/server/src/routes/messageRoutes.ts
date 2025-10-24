@@ -63,8 +63,27 @@ const messageIdSchema = Joi.object({
 });
 
 const addCommentSchema = Joi.object({
-  content: Joi.string().trim().min(1).max(2000).required(),
-  parentCommentId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional()
+  content: Joi.string().trim().max(2000).allow('').optional(),
+  parentCommentId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
+  attachments: Joi.array().items(
+    Joi.object({
+      type: Joi.string().valid('image', 'video', 'gif', 'sticker', 'file').required(),
+      url: Joi.string().required(),
+      filename: Joi.string().optional(),
+      size: Joi.number().integer().min(0).optional(),
+      mimetype: Joi.string().optional()
+    })
+  ).optional()
+}).custom((value, helpers) => {
+  // Custom validation: require either content or attachments
+  const hasContent = value.content && value.content.trim();
+  const hasAttachments = value.attachments && value.attachments.length > 0;
+  
+  if (!hasContent && !hasAttachments) {
+    return helpers.error('any.custom', { message: 'Comment must have either content or attachments' });
+  }
+  
+  return value;
 });
 
 const updateMessageSchema = Joi.object({

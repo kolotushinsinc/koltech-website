@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, MoreHorizontal, Settings, Flag, Phone, UserPlus } from 'lucide-react';
+import ImageCarousel from './ImageCarousel';
 
 interface CommentProps {
   comment: {
@@ -12,6 +13,11 @@ interface CommentProps {
     timestamp: Date;
     isEdited?: boolean;
     editedAt?: Date;
+    attachments?: {
+      type: 'image' | 'video' | 'gif' | 'sticker';
+      url: string;
+      filename?: string;
+    }[];
     reactions?: {
       [emoji: string]: {
         count: number;
@@ -33,6 +39,7 @@ interface CommentProps {
   onStartChat: (userId: string) => void;
   onAddContact: (userId: string) => void;
   onReport: (commentId: string) => void;
+  onImageClick?: (comment: any, imageIndex: number) => void;
   formatTime: (date: Date) => string;
 }
 
@@ -50,6 +57,7 @@ const Comment: React.FC<CommentProps> = ({
   onStartChat,
   onAddContact,
   onReport,
+  onImageClick,
   formatTime
 }) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
@@ -83,7 +91,7 @@ const Comment: React.FC<CommentProps> = ({
   return (
     <div className={`${level > 0 ? 'ml-4 pl-4 border-l-2 border-primary-500/30' : ''}`} id={`comment-${comment.id}`}>
       <div
-        className={`group relative rounded-xl p-3 transition-all ${
+        className={`group relative rounded-xl transition-all ${
           highlightedCommentId === comment.id
             ? 'bg-gradient-to-br from-primary-500/20 to-accent-purple/20 border-2 border-primary-500 animate-pulse'
             : isOwnComment
@@ -93,32 +101,51 @@ const Comment: React.FC<CommentProps> = ({
         onMouseEnter={() => setShowReactionPicker(true)}
         onMouseLeave={() => setShowReactionPicker(false)}
       >
-        <div className="flex items-start space-x-2 mb-2">
-          <Link to={`/user/${comment.userId}`} className="flex-shrink-0">
-            <img
-              src={comment.avatar}
-              alt={comment.username}
-              className="w-7 h-7 rounded-full object-cover border-2 border-transparent hover:border-primary-500/50 transition-colors"
-            />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2 mb-1">
-              <Link to={`/user/${comment.userId}`}>
-                <span className="text-white text-sm font-medium hover:text-primary-400 transition-colors">
-                  {comment.username}
+        {/* Header with text */}
+        <div className="p-3 pb-2">
+          <div className="flex items-start space-x-2">
+            <Link to={`/user/${comment.userId}`} className="flex-shrink-0">
+              <img
+                src={comment.avatar}
+                alt={comment.username}
+                className="w-7 h-7 rounded-full object-cover border-2 border-transparent hover:border-primary-500/50 transition-colors"
+              />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2 mb-1">
+                <Link to={`/user/${comment.userId}`}>
+                  <span className="text-white text-sm font-medium hover:text-primary-400 transition-colors">
+                    {comment.username}
+                  </span>
+                </Link>
+                <span className="text-gray-500 text-xs">
+                  {formatTime(comment.timestamp)}
                 </span>
-              </Link>
-              <span className="text-gray-500 text-xs">
-                {formatTime(comment.timestamp)}
-              </span>
-              {comment.isEdited && (
-                <span className="text-xs text-gray-500">edited</span>
+                {comment.isEdited && (
+                  <span className="text-xs text-gray-500">edited</span>
+                )}
+              </div>
+              {comment.content && (
+                <p className="text-gray-300 text-sm leading-relaxed">{comment.content}</p>
               )}
             </div>
-            <p className="text-gray-300 text-sm leading-relaxed">{comment.content}</p>
+          </div>
+        </div>
 
-            {/* Comment Reactions and Replies Counter */}
-            <div className="relative">
+        {/* Attachments - Full Width like Messages, NO padding */}
+        {comment.attachments && comment.attachments.length > 0 && (
+          <div className="overflow-hidden">
+            <ImageCarousel
+              attachments={comment.attachments}
+              onImageClick={(index) => onImageClick && onImageClick(comment, index)}
+            />
+          </div>
+        )}
+
+        {/* Footer with reactions */}
+        <div className="px-3 pb-3 pt-2">
+          {/* Comment Reactions and Replies Counter */}
+          <div className="relative">
               {((comment.reactions && Object.keys(comment.reactions).length > 0) || hasNestedReplies) && (
                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
                   {/* Reactions */}
@@ -166,7 +193,6 @@ const Comment: React.FC<CommentProps> = ({
                   ))}
                 </div>
               )}
-            </div>
           </div>
         </div>
 
@@ -283,6 +309,7 @@ const Comment: React.FC<CommentProps> = ({
                 onStartChat={onStartChat}
                 onAddContact={onAddContact}
                 onReport={onReport}
+                onImageClick={onImageClick}
                 formatTime={formatTime}
               />
           ))}

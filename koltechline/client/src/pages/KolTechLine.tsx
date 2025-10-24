@@ -227,15 +227,20 @@ const KolTechLine = () => {
       // Direct socket listeners for comments
       const handleNewComment = (data: any) => {
         console.log('📨 Direct new_comment event:', data);
-        // Update comment count
-        setMessages(prev => prev.map(msg =>
-          msg.id === data.parentMessageId
-            ? { ...msg, replies: msg.replies + 1 }
-            : msg
-        ));
         
-        // If comments are expanded - reload them
-        if (expandedReplies.has(data.parentMessageId)) {
+        // ВАЖНО: НЕ увеличиваем счетчик если это наш собственный комментарий
+        // (он уже был увеличен оптимистично в createComment)
+        if (data.comment?.author?._id !== user?._id) {
+          // Update comment count only for other users' comments
+          setMessages(prev => prev.map(msg =>
+            msg.id === data.parentMessageId
+              ? { ...msg, replies: msg.replies + 1 }
+              : msg
+          ));
+        }
+        
+        // If comments are expanded - reload them (только если это не наш комментарий)
+        if (expandedReplies.has(data.parentMessageId) && data.comment?.author?._id !== user?._id) {
           messageApi.getComments(data.parentMessageId).then(response => {
             const commentTree = buildCommentTree(response.data.comments, data.parentMessageId);
             setMessageReplies(prev => ({
@@ -591,7 +596,7 @@ const KolTechLine = () => {
 
     // Check if replying to comment
     if (replyingToComment) {
-      if (!newMessage.trim()) return;
+      if (!newMessage.trim() && selectedFiles.length === 0) return;
       await createComment(replyingToComment.parentMessageId, newMessage.trim(), replyingToComment.commentId);
       setNewMessage('');
       setReplyingToComment(null);
@@ -600,7 +605,7 @@ const KolTechLine = () => {
 
     // Check if replying to message
     if (replyingTo) {
-      if (!newMessage.trim()) return;
+      if (!newMessage.trim() && selectedFiles.length === 0) return;
       await createComment(replyingTo.messageId, newMessage.trim());
       setNewMessage('');
       setReplyingTo(null);
@@ -937,13 +942,42 @@ const KolTechLine = () => {
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
 
   const createComment = async (messageId: string, content: string, parentCommentId?: string) => {
+    // Проверка: должен быть либо текст, либо файлы
+    if (!content.trim() && selectedFiles.length === 0) {
+      showWarning('⚠️ Please add some text or attach files');
+      return;
+    }
+    
     // Generate temporary ID for optimistic update
     const tempId = `temp-comment-${Date.now()}`;
     
     // Сохраняем текст для rollback
     const originalContent = content.trim();
     
-    // Create optimistic comment
+    // Upload files if any (same logic as messages)
+    const attachments = [];
+    for (const file of selectedFiles) {
+      try {
+        let uploadResponse;
+        if (file.type.startsWith('image/')) {
+          uploadResponse = await fileApi.uploadImage(file, { compress: true, width: 800 });
+        } else if (file.type.startsWith('video/')) {
+          uploadResponse = await fileApi.uploadVideo(file);
+        }
+        
+        if (uploadResponse?.data?.file) {
+          attachments.push({
+            type: file.type.startsWith('image/') ? 'image' : 'video',
+            url: uploadResponse.data.file.url,
+            filename: uploadResponse.data.file.originalName || uploadResponse.data.file.filename
+          });
+        }
+      } catch (fileError) {
+        console.error('Error uploading file for comment:', fileError);
+      }
+    }
+    
+    // Create optimistic comment with attachments
     const optimisticComment: Message = {
       id: tempId,
       userId: user!._id,
@@ -951,6 +985,7 @@ const KolTechLine = () => {
       avatar: user!.avatar ? `http://localhost:5005${user!.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(user!.firstName + ' ' + user!.lastName)}&background=6366f1&color=fff&size=40`,
       content: originalContent,
       timestamp: new Date(),
+      attachments: attachments.length > 0 ? attachments as any : undefined,
       likes: 0,
       replies: 0,
       tags: [],
@@ -996,16 +1031,23 @@ const KolTechLine = () => {
           : msg
       ));
       
-      if (expandedReplies.has(messageId)) {
-        setMessageReplies(prev => ({
-          ...prev,
-          [messageId]: [...(prev[messageId] || []), optimisticComment]
-        }));
+      // ВАЖНО: Добавляем комментарий в список ВСЕГДА, не только если expandedReplies
+      // Это гарантирует что комментарий будет виден когда пользователь раскроет список
+      setMessageReplies(prev => ({
+        ...prev,
+        [messageId]: [...(prev[messageId] || []), optimisticComment]
+      }));
+      
+      // Автоматически раскрываем комментарии если они еще не раскрыты
+      if (!expandedReplies.has(messageId)) {
+        setExpandedReplies(prev => new Set(prev).add(messageId));
       }
     }
     
     // ВАЖНО: Очищаем форму СРАЗУ после optimistic update
     setNewMessage('');
+    setSelectedFiles([]);
+    setFilePreviews([]);
     setReplyingTo(null);
     setReplyingToComment(null);
     
@@ -1027,8 +1069,8 @@ const KolTechLine = () => {
     }, 2000);
     
     try {
-      // Отправляем на сервер в фоне
-      const response = await messageApi.addComment(messageId, content, parentCommentId);
+      // Отправляем на сервер в фоне с attachments
+      const response = await messageApi.addComment(messageId, content, parentCommentId, attachments);
       
       const realComment: Message = {
         id: response.data.comment._id,
@@ -1037,6 +1079,7 @@ const KolTechLine = () => {
         avatar: response.data.comment.author.avatar ? `http://localhost:5005${response.data.comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(response.data.comment.author.firstName + ' ' + response.data.comment.author.lastName)}&background=6366f1&color=fff&size=40`,
         content: response.data.comment.content,
         timestamp: new Date(response.data.comment.createdAt),
+        attachments: response.data.comment.attachments || [],
         likes: 0,
         replies: 0,
         tags: [],
@@ -1177,6 +1220,7 @@ const KolTechLine = () => {
         avatar: comment.author.avatar ? `http://localhost:5005${comment.author.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author.firstName + ' ' + comment.author.lastName)}&background=6366f1&color=fff&size=40`,
         content: comment.content,
         timestamp: new Date(comment.createdAt),
+        attachments: comment.attachments || [], // ✅ ДОБАВИЛИ ATTACHMENTS!
         likes: comment.likesCount || 0,
         replies: 0,
         tags: [],
@@ -2297,7 +2341,7 @@ const KolTechLine = () => {
                     return (
                     <div
                       key={message.id}
-                      className={`group relative rounded-2xl p-4 transition-all duration-200 shadow-lg hover:shadow-xl ${
+                      className={`group relative rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl ${
                         isOwnMessage
                           ? 'bg-gradient-to-br from-primary-500/15 to-accent-purple/15 border border-primary-500/40 hover:border-primary-500/60 hover:shadow-primary-500/20'
                           : 'bg-gradient-to-br from-dark-800 to-dark-700 border border-dark-600 hover:border-primary-500/30 hover:shadow-dark-900/50'
@@ -2311,7 +2355,7 @@ const KolTechLine = () => {
                       onMouseLeave={() => setShowReactionPicker(null)}
                     >
                     {/* Message Header - Compact */}
-                    <div className="flex items-start space-x-3 mb-2">
+                    <div className="flex items-start space-x-3 p-4 pb-3 rounded-t-2xl overflow-hidden">
                       <Link to={`/user/${message.userId}`} className="flex-shrink-0">
                         <img
                           src={message.avatar}
@@ -2339,37 +2383,41 @@ const KolTechLine = () => {
                         </div>
 
                         {/* Message Content */}
-                        <p className="text-gray-300 leading-relaxed text-sm">{message.content}</p>
+                        {message.content && (
+                          <p className="text-gray-300 leading-relaxed text-sm">{message.content}</p>
+                        )}
+                      </div>
+                    </div>
                       
-                      {/* Attachments - Modern Carousel with Blur Background */}
-                      {message.attachments && message.attachments.length > 0 && (
+                    {/* Attachments - Full Width Carousel */}
+                    {message.attachments && message.attachments.length > 0 && (
+                      <div className="overflow-hidden">
                         <ImageCarousel
                           attachments={message.attachments}
                           onImageClick={(index) => openImageGallery(message, index)}
                         />
-                      )}
-
-                        {/* Tags */}
-                        {message.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {message.tags.map(tag => (
-                              <span
-                                key={tag}
-                                className="bg-dark-700 text-gray-400 px-2 py-0.5 rounded text-xs hover:bg-primary-500 hover:text-white transition-colors cursor-pointer"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
-                    </div>
+                    )}
+
+                    {/* Tags - Below carousel */}
+                    {message.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 px-4 pt-3 overflow-hidden">
+                        {message.tags.map(tag => (
+                          <span
+                            key={tag}
+                            className="bg-dark-700 text-gray-400 px-2 py-0.5 rounded text-xs hover:bg-primary-500 hover:text-white transition-colors cursor-pointer"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Compact Message Footer - Reaction counters */}
-                    <div className="relative mt-2">
+                    <div className="px-4 pb-4 pt-2 rounded-b-2xl">
                       {/* Show counters only if there are reactions or replies */}
                       {((message.reactions && Object.keys(message.reactions).length > 0) || message.replies > 0) && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="relative flex items-center gap-1.5 flex-wrap">
                           {message.reactions && Object.entries(message.reactions).map(([emoji, data]) => (
                             <div 
                               key={emoji}
@@ -2389,13 +2437,121 @@ const KolTechLine = () => {
                               <span>{message.replies}</span>
                             </button>
                           )}
+                          
+                          {/* Reaction Picker - компактный - показываем только если НЕ в области комментариев */}
+                          {showReactionPicker === message.id && !isHoveringComments && (
+                            <div className="absolute left-0 top-full mt-1 bg-dark-700 border border-dark-600 rounded-full px-2 py-1.5 shadow-xl flex items-center gap-1 animate-scale-in z-50 reaction-picker-container">
+                              {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!canLikeContent()) {
+                                      setShowAuthModal(true, 'like');
+                                      setShowReactionPicker(null);
+                                      return;
+                                    }
+                                    
+                                    // OPTIMISTIC UPDATE - мгновенно обновляем UI
+                                    const currentReactions = { ...message.reactions };
+                                    const currentUserReaction = message.userReaction;
+                                    const userId = user?._id;
+                                    
+                                    // Создаём новое состояние реакций
+                                    const newReactions = { ...currentReactions };
+                                    
+                                    // ВАЖНО: Сначала удаляем старую реакцию пользователя (если есть)
+                                    // Это предотвращает "мерцание" когда обе реакции видны одновременно
+                                    if (currentUserReaction && newReactions[currentUserReaction]) {
+                                      newReactions[currentUserReaction] = {
+                                        count: Math.max(0, newReactions[currentUserReaction].count - 1),
+                                        users: newReactions[currentUserReaction].users.filter(id => id !== userId)
+                                      };
+                                      if (newReactions[currentUserReaction].count === 0) {
+                                        delete newReactions[currentUserReaction];
+                                      }
+                                    }
+                                    
+                                    // Если пользователь кликнул на ту же реакцию - просто удаляем её (уже удалили выше)
+                                    // Если на другую - добавляем новую
+                                    if (currentUserReaction !== emoji) {
+                                      if (newReactions[emoji]) {
+                                        newReactions[emoji] = {
+                                          count: newReactions[emoji].count + 1,
+                                          users: [...newReactions[emoji].users, userId!]
+                                        };
+                                      } else {
+                                        newReactions[emoji] = {
+                                          count: 1,
+                                          users: [userId!]
+                                        };
+                                      }
+                                    }
+                                    
+                                    const newUserReaction = currentUserReaction === emoji ? undefined : emoji;
+                                    
+                                    // Мгновенно обновляем UI (Optimistic Update)
+                                    setMessages(prev => prev.map(msg =>
+                                      msg.id === message.id
+                                        ? {
+                                            ...msg,
+                                            reactions: newReactions,
+                                            userReaction: newUserReaction
+                                          }
+                                        : msg
+                                    ));
+                                    
+                                    // Отправляем запрос на сервер в фоне
+                                    try {
+                                      const response = await messageApi.toggleReaction(message.id, emoji);
+                                      
+                                      // Синхронизируем с реальными данными от сервера
+                                      setMessages(prev => prev.map(msg =>
+                                        msg.id === message.id
+                                          ? {
+                                              ...msg,
+                                              reactions: response.data.reactions.reduce((acc: any, r: any) => {
+                                                acc[r.emoji] = { count: r.count, users: r.users };
+                                                return acc;
+                                              }, {}),
+                                              userReaction: response.data.userReaction
+                                            }
+                                          : msg
+                                      ));
+                                    } catch (error) {
+                                      console.error('Error toggling reaction:', error);
+                                      
+                                      // В случае ошибки - откатываем изменения (Rollback)
+                                      setMessages(prev => prev.map(msg =>
+                                        msg.id === message.id
+                                          ? {
+                                              ...msg,
+                                              reactions: currentReactions,
+                                              userReaction: currentUserReaction
+                                            }
+                                          : msg
+                                      ));
+                                      
+                                      showError('❌ Failed to update reaction. Please try again.');
+                                    }
+                                  }}
+                                  className={`text-lg hover:scale-110 transition-transform p-1 ${
+                                    message.userReaction === emoji ? 'scale-105' : ''
+                                  }`}
+                                  title={emoji}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                       
                       {/* Replies Section */}
                       {expandedReplies.has(message.id) && (
                         <div 
-                          className="mt-4 pl-4 border-l-2 border-primary-500/30 space-y-3"
+                          className="mt-4 ml-4 pl-4 border-l-2 border-primary-500/30 space-y-3"
                           onMouseEnter={() => {
                             setIsHoveringComments(message.id);
                             setShowReactionPicker(null); // Скрываем реакции основного сообщения
@@ -2462,120 +2618,27 @@ const KolTechLine = () => {
                                 onStartChat={handleStartPrivateChat}
                                 onAddContact={handleAddContact}
                                 onReport={handleReport}
+                                onImageClick={(comment, imageIndex) => {
+                                  setImageGalleryModal({
+                                    isOpen: true,
+                                    images: comment.attachments!.map((att: any) => ({
+                                      url: att.url,
+                                      filename: att.filename,
+                                      type: att.type as 'image' | 'video'
+                                    })),
+                                    initialIndex: imageIndex,
+                                    author: {
+                                      username: comment.username,
+                                      avatar: comment.avatar
+                                    }
+                                  });
+                                }}
                                 formatTime={formatTime}
                               />
                             ))
                           )}
                         </div>
                       )}
-                      
-                      {/* Reaction Picker - компактный - показываем только если НЕ в области комментариев */}
-                      {showReactionPicker === message.id && !isHoveringComments && (
-                          <div className="absolute left-0 top-full mt-1 bg-dark-700 border border-dark-600 rounded-full px-2 py-1.5 shadow-xl flex items-center gap-1 animate-scale-in z-50 reaction-picker-container">
-                            {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
-                              <button
-                                key={emoji}
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  if (!canLikeContent()) {
-                                    setShowAuthModal(true, 'like');
-                                    setShowReactionPicker(null);
-                                    return;
-                                  }
-                                  
-                                  // OPTIMISTIC UPDATE - мгновенно обновляем UI
-                                  const currentReactions = { ...message.reactions };
-                                  const currentUserReaction = message.userReaction;
-                                  const userId = user?._id;
-                                  
-                                  // Создаём новое состояние реакций
-                                  const newReactions = { ...currentReactions };
-                                  
-                                  // ВАЖНО: Сначала удаляем старую реакцию пользователя (если есть)
-                                  // Это предотвращает "мерцание" когда обе реакции видны одновременно
-                                  if (currentUserReaction && newReactions[currentUserReaction]) {
-                                    newReactions[currentUserReaction] = {
-                                      count: Math.max(0, newReactions[currentUserReaction].count - 1),
-                                      users: newReactions[currentUserReaction].users.filter(id => id !== userId)
-                                    };
-                                    if (newReactions[currentUserReaction].count === 0) {
-                                      delete newReactions[currentUserReaction];
-                                    }
-                                  }
-                                  
-                                  // Если пользователь кликнул на ту же реакцию - просто удаляем её (уже удалили выше)
-                                  // Если на другую - добавляем новую
-                                  if (currentUserReaction !== emoji) {
-                                    if (newReactions[emoji]) {
-                                      newReactions[emoji] = {
-                                        count: newReactions[emoji].count + 1,
-                                        users: [...newReactions[emoji].users, userId!]
-                                      };
-                                    } else {
-                                      newReactions[emoji] = {
-                                        count: 1,
-                                        users: [userId!]
-                                      };
-                                    }
-                                  }
-                                  
-                                  const newUserReaction = currentUserReaction === emoji ? undefined : emoji;
-                                  
-                                  // Мгновенно обновляем UI (Optimistic Update)
-                                  setMessages(prev => prev.map(msg =>
-                                    msg.id === message.id
-                                      ? {
-                                          ...msg,
-                                          reactions: newReactions,
-                                          userReaction: newUserReaction
-                                        }
-                                      : msg
-                                  ));
-                                  
-                                  // Отправляем запрос на сервер в фоне
-                                  try {
-                                    const response = await messageApi.toggleReaction(message.id, emoji);
-                                    
-                                    // Синхронизируем с реальными данными от сервера
-                                    setMessages(prev => prev.map(msg =>
-                                      msg.id === message.id
-                                        ? {
-                                            ...msg,
-                                            reactions: response.data.reactions.reduce((acc: any, r: any) => {
-                                              acc[r.emoji] = { count: r.count, users: r.users };
-                                              return acc;
-                                            }, {}),
-                                            userReaction: response.data.userReaction
-                                          }
-                                        : msg
-                                    ));
-                                  } catch (error) {
-                                    console.error('Error toggling reaction:', error);
-                                    
-                                    // В случае ошибки - откатываем изменения (Rollback)
-                                    setMessages(prev => prev.map(msg =>
-                                      msg.id === message.id
-                                        ? {
-                                            ...msg,
-                                            reactions: currentReactions,
-                                            userReaction: currentUserReaction
-                                          }
-                                        : msg
-                                    ));
-                                    
-                                    showError('❌ Failed to update reaction. Please try again.');
-                                  }
-                                }}
-                                className={`text-lg hover:scale-110 transition-transform p-1 ${
-                                  message.userReaction === emoji ? 'scale-105' : ''
-                                }`}
-                                title={emoji}
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                     </div>
                     
                     {/* Hover Actions - Compact */}

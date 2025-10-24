@@ -9,6 +9,13 @@ interface CreateCommentDTO {
   authorId: string;
   messageId: string;
   parentCommentId?: string;
+  attachments?: Array<{
+    type: 'image' | 'video' | 'gif' | 'sticker' | 'file';
+    url: string;
+    filename?: string;
+    size?: number;
+    mimetype?: string;
+  }>;
 }
 
 interface UpdateCommentDTO {
@@ -24,11 +31,14 @@ class CommentService {
    * Create a new comment or nested reply
    */
   async createComment(dto: CreateCommentDTO): Promise<IMessage> {
-    const { content, authorId, messageId, parentCommentId } = dto;
+    const { content, authorId, messageId, parentCommentId, attachments } = dto;
 
-    // Validate content
-    if (!content || !content.trim()) {
-      throw new AppError('Comment content is required', 400);
+    // Validate content or attachments
+    const hasContent = content && content.trim();
+    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+    
+    if (!hasContent && !hasAttachments) {
+      throw new AppError('Comment must have either content or attachments', 400);
     }
 
     // Get parent message
@@ -54,15 +64,29 @@ class CommentService {
     }
 
     // Create comment
+    console.log('📝 Creating comment with attachments:', {
+      hasContent,
+      hasAttachments,
+      attachmentsCount: attachments?.length || 0,
+      attachments: attachments
+    });
+
     const comment = await Message.create({
-      content: content.trim(),
+      content: hasContent ? content.trim() : '',
       author: authorId,
       wall: parentMessage.wall,
       parentMessage: parentCommentId || messageId,
+      attachments: attachments || [],
       visibility: parentMessage.visibility
     });
 
     await comment.populate('author', 'firstName lastName username avatar');
+
+    console.log('✅ Comment created with attachments:', {
+      commentId: comment._id,
+      attachmentsCount: comment.attachments?.length || 0,
+      attachments: comment.attachments
+    });
 
     // Update parent message reply count (only for top-level comments)
     if (!parentCommentId) {
@@ -159,29 +183,55 @@ class CommentService {
       throw new AppError('Message not found', 404);
     }
 
-    // Get direct replies
+    console.log('📥 Loading comments for message:', messageId);
+
+    // Get direct replies with ALL fields including attachments
     const directReplies = await Message.find({
       parentMessage: messageId,
       isDeleted: false
     })
       .populate('author', 'firstName lastName username avatar')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1 })
+      .lean(); // Use lean() for better performance
+
+    console.log('📦 Direct replies loaded:', {
+      count: directReplies.length,
+      commentsWithAttachments: directReplies.filter((r: any) => r.attachments && r.attachments.length > 0).length
+    });
 
     // Get all nested replies recursively
-    const directReplyIds = directReplies.map(r => r._id.toString());
+    const directReplyIds = directReplies.map((r: any) => r._id.toString());
     const allNestedReplies = await this.loadAllNestedComments(directReplyIds);
 
     // Combine all comments
     const allComments = [...directReplies, ...allNestedReplies];
 
+    console.log('📊 Total comments loaded:', {
+      total: allComments.length,
+      withAttachments: allComments.filter((c: any) => c.attachments && c.attachments.length > 0).length
+    });
+
+    // Log each comment with attachments
+    allComments.forEach((comment: any) => {
+      if (comment.attachments && comment.attachments.length > 0) {
+        console.log('🖼️ Comment with attachments:', {
+          commentId: comment._id,
+          attachmentsCount: comment.attachments.length,
+          attachments: comment.attachments
+        });
+      }
+    });
+
     // Add user reaction info if userId provided
     return allComments.map((comment: any) => {
-      const commentObj = comment.toObject ? comment.toObject() : comment;
-      if (userId) {
-        const userReaction = comment.getUserReaction?.(userId);
-        commentObj.userReaction = userReaction;
+      // comment is already a plain object from .lean()
+      if (userId && comment.reactions) {
+        const userReaction = comment.reactions.find((r: any) =>
+          r.users.some((id: any) => id.toString() === userId)
+        );
+        comment.userReaction = userReaction?.emoji || null;
       }
-      return commentObj;
+      return comment;
     });
   }
 
@@ -378,12 +428,13 @@ class CommentService {
       isDeleted: false
     })
       .populate('author', 'firstName lastName username avatar')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1 })
+      .lean(); // Use lean() to get all fields including attachments
 
     if (comments.length === 0) return [];
 
     // Recursively load next level
-    const commentIds = comments.map(c => c._id.toString());
+    const commentIds = comments.map((c: any) => c._id.toString());
     const nestedComments = await this.loadAllNestedComments(commentIds);
 
     return [...comments, ...nestedComments];
