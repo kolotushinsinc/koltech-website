@@ -4,11 +4,13 @@ import { extractTagsFromContent } from '../../utils/koltech-line/wallHelpers';
 
 interface UseMessageActionsProps {
   userId?: string;
+  username?: string;
+  avatar?: string;
   onSuccess?: (message: string) => void;
   onError?: (message: string) => void;
 }
 
-export const useMessageActions = ({ userId, onSuccess, onError }: UseMessageActionsProps = {}) => {
+export const useMessageActions = ({ userId, username, avatar, onSuccess, onError }: UseMessageActionsProps = {}) => {
   
   const handleSendMessage = async (
     data: SendMessageData,
@@ -20,12 +22,12 @@ export const useMessageActions = ({ userId, onSuccess, onError }: UseMessageActi
     // Generate temporary ID for optimistic update
     const tempId = `temp-${Date.now()}`;
     
-    // Create optimistic message
+    // Create optimistic message with real user data
     const optimisticMessage: Message = {
       id: tempId,
       userId: userId!,
-      username: 'You',
-      avatar: '',
+      username: username || 'You',
+      avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'You')}&background=6366f1&color=fff&size=40`,
       content: content.trim(),
       timestamp: new Date(),
       attachments: [],

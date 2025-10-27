@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Heart,
@@ -12,9 +12,10 @@ import {
   Share2
 } from 'lucide-react';
 import { Message } from '../../types/koltech-line';
-import { formatTime } from '../../utils/koltech-line/wallHelpers';
 import { reactionEmojis } from '../../utils/koltech-line/constants';
 import ImageCarousel from '../ImageCarousel';
+import { renderTextWithLinks, LinkPreview, LinkPreviewSkeleton } from '../LinkPreview';
+import { useLinkPreview } from '../../hooks/useLinkPreview';
 
 interface MessageCardProps {
   message: Message;
@@ -42,6 +43,14 @@ interface MessageCardProps {
   children?: React.ReactNode;
 }
 
+// Local formatTime function to display time in HH:MM format
+const formatTime = (date: Date): string => {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 const MessageCard: React.FC<MessageCardProps> = ({
   message,
   currentUserId,
@@ -62,7 +71,77 @@ const MessageCard: React.FC<MessageCardProps> = ({
   children
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const isOwnMessage = currentUserId && message.userId === currentUserId;
+  
+  // Extract link previews from message content
+  const { linkPreviews, loading } = useLinkPreview(message.content || '');
+  
+  // Check menu position and adjust if needed
+  const updateMenuPosition = useCallback(() => {
+    if (!menuButtonRef.current || !menuRef.current) return;
+    
+    const buttonRect = menuButtonRef.current.getBoundingClientRect();
+    const menuHeight = menuRef.current.offsetHeight;
+    const viewportHeight = window.innerHeight;
+    
+    // Check if menu would go off the bottom of the viewport
+    if (buttonRect.bottom + menuHeight > viewportHeight) {
+      setMenuPosition('top');
+    } else {
+      setMenuPosition('bottom');
+    }
+  }, []);
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuOpen && 
+        menuRef.current && 
+        !menuRef.current.contains(event.target as Node) &&
+        menuButtonRef.current && 
+        !menuButtonRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen]);
+  
+  // Update menu position when it opens or on scroll
+  useEffect(() => {
+    if (menuOpen) {
+      updateMenuPosition();
+      
+      // Also update on scroll
+      const handleScroll = () => {
+        updateMenuPosition();
+      };
+      
+      window.addEventListener('scroll', handleScroll);
+      window.addEventListener('resize', handleScroll);
+      
+      return () => {
+        window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('resize', handleScroll);
+      };
+    }
+  }, [menuOpen, updateMenuPosition]);
+  
+  // Close menu when leaving the component
+  const handleMouseLeave = () => {
+    onShowReactionPicker(false);
+    if (menuOpen) {
+      setMenuOpen(false);
+    }
+  };
 
   return (
     <div
@@ -76,7 +155,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
           onShowReactionPicker(true);
         }
       }}
-      onMouseLeave={() => onShowReactionPicker(false)}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Message Header */}
       <div className="flex items-start space-x-2.5 p-3 pb-2 rounded-t-2xl overflow-hidden">
@@ -107,11 +186,33 @@ const MessageCard: React.FC<MessageCardProps> = ({
             )}
           </div>
 
-          {/* Message Content */}
+          {/* Message Content with clickable links */}
           {message.content && (
             <p className="text-gray-300 leading-relaxed text-sm whitespace-pre-wrap break-words mt-0.5">
-              {message.content}
+              {renderTextWithLinks(message.content)}
             </p>
+          )}
+          
+          {/* Link Previews in message - only show first link preview */}
+          {loading ? (
+            <div className="mt-2 space-y-2">
+              <LinkPreviewSkeleton compact={false} />
+            </div>
+          ) : linkPreviews.size > 0 && (
+            <div className="mt-2 space-y-2">
+              {(() => {
+                // Get only the first link preview
+                const [firstUrl, firstMetadata] = Array.from(linkPreviews.entries())[0];
+                return (
+                  <LinkPreview
+                    key={firstUrl}
+                    metadata={firstMetadata}
+                    compact={false}
+                    showRemoveButton={false}
+                  />
+                );
+              })()}
+            </div>
           )}
         </div>
       </div>
@@ -202,23 +303,29 @@ const MessageCard: React.FC<MessageCardProps> = ({
       {/* Hover Actions Menu */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
+          ref={menuButtonRef}
           onClick={(e) => {
             e.stopPropagation();
             setMenuOpen(!menuOpen);
           }}
-          className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-dark-700"
+          className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-xl hover:bg-dark-700"
         >
           <MoreHorizontal className="w-4 h-4" />
         </button>
         
         {menuOpen && (
-          <div className="absolute right-0 top-full mt-1 w-48 bg-dark-700 border border-dark-600 rounded-xl shadow-2xl z-[100] overflow-hidden">
+          <div 
+            ref={menuRef}
+            className={`absolute right-0 ${
+              menuPosition === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'
+            } w-48 bg-dark-700 border border-dark-600 rounded-xl shadow-2xl z-[100] overflow-hidden`}
+          >
             <button
               onClick={() => {
                 onComment(message.id);
                 setMenuOpen(false);
               }}
-              className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+              className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
             >
               <MessageCircle className="w-4 h-4" />
               <span>Reply</span>
@@ -231,7 +338,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
                     onEdit(message);
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                 >
                   <Settings className="w-4 h-4" />
                   <span>Edit</span>
@@ -242,7 +349,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
                     onDelete(message.id);
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                  className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                 >
                   <Flag className="w-4 h-4" />
                   <span>Delete</span>
@@ -257,7 +364,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
                     onStartChat(message.userId);
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                 >
                   <Phone className="w-4 h-4" />
                   <span>Message</span>
@@ -268,7 +375,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
                     onAddContact(message.userId);
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                 >
                   <UserPlus className="w-4 h-4" />
                   <span>Add Contact</span>
@@ -279,7 +386,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
                     onReport(message.id);
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                  className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                 >
                   <Flag className="w-4 h-4" />
                   <span>Report</span>
@@ -290,7 +397,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
             <div className="border-t border-dark-600"></div>
             <button
               onClick={() => setMenuOpen(false)}
-              className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+              className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
             >
               <Share2 className="w-4 h-4" />
               <span>Share</span>

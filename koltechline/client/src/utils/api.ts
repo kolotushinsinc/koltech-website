@@ -643,6 +643,23 @@ export const projectApi = {
     })
 };
 
+// Link Preview API
+export const linkPreviewApi = {
+  // Get link metadata
+  getPreview: (url: string) =>
+    apiRequest('/link-preview/preview', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+
+  // Extract URLs from text
+  extractUrls: (text: string) =>
+    apiRequest('/link-preview/extract', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    })
+};
+
 // User API
 export const userAPI = {
   // Get user profile
@@ -789,5 +806,6 @@ export default {
   fileApi,
   searchApi,
   tagApi,
-  projectApi
+  projectApi,
+  linkPreviewApi
 };

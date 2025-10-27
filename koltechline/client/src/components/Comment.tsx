@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, MoreHorizontal, Settings, Flag, Phone, UserPlus } from 'lucide-react';
 import ImageCarousel from './ImageCarousel';
+import { renderTextWithLinks, LinkPreview, LinkPreviewSkeleton } from './LinkPreview';
+import { useLinkPreview } from '../hooks/useLinkPreview';
 
 interface CommentProps {
   comment: {
@@ -62,11 +64,78 @@ const Comment: React.FC<CommentProps> = ({
 }) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const hasNestedReplies = comment.nestedReplies && comment.nestedReplies.length > 0;
   const [showNestedReplies, setShowNestedReplies] = useState(false);
   const isOwnComment = currentUserId && comment.userId === currentUserId;
   const maxLevel = 3; // Максимальная глубина вложенности
   const nestedRepliesCount = comment.nestedReplies?.length || 0;
+  
+  // Check menu position and adjust if needed
+  const updateMenuPosition = useCallback(() => {
+    if (!menuButtonRef.current || !menuRef.current) return;
+    
+    const buttonRect = menuButtonRef.current.getBoundingClientRect();
+    const menuHeight = menuRef.current.offsetHeight;
+    const viewportHeight = window.innerHeight;
+    
+    // Check if menu would go off the bottom of the viewport
+    if (buttonRect.bottom + menuHeight > viewportHeight) {
+      setMenuPosition('top');
+    } else {
+      setMenuPosition('bottom');
+    }
+  }, []);
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuOpen && 
+        menuRef.current && 
+        !menuRef.current.contains(event.target as Node) &&
+        menuButtonRef.current && 
+        !menuButtonRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen]);
+  
+  // Update menu position when it opens or on scroll
+  useEffect(() => {
+    if (menuOpen) {
+      updateMenuPosition();
+      
+      // Also update on scroll
+      const handleScroll = () => {
+        updateMenuPosition();
+      };
+      
+      window.addEventListener('scroll', handleScroll);
+      window.addEventListener('resize', handleScroll);
+      
+      return () => {
+        window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('resize', handleScroll);
+      };
+    }
+  }, [menuOpen, updateMenuPosition]);
+  
+  // Handle mouse leave - close menu and reaction picker
+  const handleMouseLeave = () => {
+    setShowReactionPicker(false);
+    if (menuOpen) {
+      setMenuOpen(false);
+    }
+  };
 
   // Автоматически раскрываем nestedReplies если внутри есть подсвеченный комментарий
   useEffect(() => {
@@ -99,7 +168,7 @@ const Comment: React.FC<CommentProps> = ({
             : 'bg-dark-700/50 border border-dark-600 hover:border-primary-500/30'
         }`}
         onMouseEnter={() => setShowReactionPicker(true)}
-        onMouseLeave={() => setShowReactionPicker(false)}
+        onMouseLeave={handleMouseLeave}
       >
         {/* Header with text */}
         <div className="p-3 pb-2">
@@ -126,8 +195,13 @@ const Comment: React.FC<CommentProps> = ({
                 )}
               </div>
               {comment.content && (
-                <p className="text-gray-300 text-sm leading-relaxed">{comment.content}</p>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  {renderTextWithLinks(comment.content)}
+                </p>
               )}
+              
+              {/* Link Previews */}
+              {comment.content && <CommentLinkPreview content={comment.content} />}
             </div>
           </div>
         </div>
@@ -199,24 +273,30 @@ const Comment: React.FC<CommentProps> = ({
         {/* Comment Context Menu */}
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
+            ref={menuButtonRef}
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpen(!menuOpen);
             }}
-            className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-dark-700"
+            className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-xl hover:bg-dark-700"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-48 bg-dark-700 border border-dark-600 rounded-xl shadow-2xl z-[100] overflow-hidden">
+            <div 
+              ref={menuRef}
+              className={`absolute right-0 ${
+                menuPosition === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'
+              } w-48 bg-dark-700 border border-dark-600 rounded-xl shadow-2xl z-[100] overflow-hidden`}
+            >
               {level < maxLevel && (
                 <button
                   onClick={() => {
                     onReply(comment.id, comment.username);
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                  className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>Reply</span>
@@ -230,7 +310,7 @@ const Comment: React.FC<CommentProps> = ({
                       onEdit(comment);
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                   >
                     <Settings className="w-4 h-4" />
                     <span>Edit</span>
@@ -241,7 +321,7 @@ const Comment: React.FC<CommentProps> = ({
                       onDelete(comment.id);
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                    className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                   >
                     <Flag className="w-4 h-4" />
                     <span>Delete</span>
@@ -256,7 +336,7 @@ const Comment: React.FC<CommentProps> = ({
                       onStartChat(comment.userId);
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                   >
                     <Phone className="w-4 h-4" />
                     <span>Message</span>
@@ -267,7 +347,7 @@ const Comment: React.FC<CommentProps> = ({
                       onAddContact(comment.userId);
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                   >
                     <UserPlus className="w-4 h-4" />
                     <span>Add Contact</span>
@@ -278,7 +358,7 @@ const Comment: React.FC<CommentProps> = ({
                       onReport(comment.id);
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                    className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm rounded-lg mx-1 my-0.5"
                   >
                     <Flag className="w-4 h-4" />
                     <span>Report</span>
@@ -315,6 +395,36 @@ const Comment: React.FC<CommentProps> = ({
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// Component to display link previews in comments
+const CommentLinkPreview: React.FC<{ content: string }> = ({ content }) => {
+  const { linkPreviews, loading } = useLinkPreview(content);
+  
+  if (loading) {
+    return (
+      <div className="mt-2 space-y-2">
+        <LinkPreviewSkeleton compact={false} />
+      </div>
+    );
+  }
+  
+  if (linkPreviews.size === 0) {
+    return null;
+  }
+  
+  return (
+    <div className="mt-2 space-y-2">
+      {Array.from(linkPreviews.entries()).map(([url, metadata]) => (
+        <LinkPreview
+          key={url}
+          metadata={metadata}
+          compact={false}
+          showRemoveButton={false}
+        />
+      ))}
     </div>
   );
 };

@@ -1,13 +1,19 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Send, Paperclip, X, MessageCircle, Settings, UserPlus } from 'lucide-react';
 import { FilePreview, ReplyToData, ReplyToCommentData, EditingMessageData, EditingCommentData, Wall } from '../../types/koltech-line';
 import VideoUploadProgress from '../VideoUploadProgress';
+import { useLinkPreview, LinkMetadata } from '../../hooks/useLinkPreview';
+import { LinkPreviewInput } from '../LinkPreview';
 
 interface MessageInputProps {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
+  
+  // Link previews
+  linkPreviews?: Map<string, LinkMetadata>;
+  onRemoveLinkPreview?: (url: string) => void;
   
   // File upload
   selectedFiles: File[];
@@ -73,9 +79,22 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onCancelReply,
   onCancelEdit,
   onJoinWall,
-  placeholder
+  placeholder,
+  linkPreviews,
+  onRemoveLinkPreview
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [hiddenPreviews, setHiddenPreviews] = useState<Set<string>>(new Set());
+
+  // Фильтруем скрытые превью
+  const visiblePreviews = linkPreviews 
+    ? new Map(Array.from(linkPreviews.entries()).filter(([url]) => !hiddenPreviews.has(url)))
+    : new Map();
+
+  const handleRemovePreview = (url: string) => {
+    setHiddenPreviews(prev => new Set(prev).add(url));
+    onRemoveLinkPreview?.(url);
+  };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value);
@@ -167,6 +186,16 @@ const MessageInput: React.FC<MessageInputProps> = ({
             </div>
           </div>
           
+          {/* Link Previews */}
+          {visiblePreviews.size > 0 && (
+            <div className="mb-2">
+              <LinkPreviewInput
+                previews={visiblePreviews}
+                onRemove={handleRemovePreview}
+              />
+            </div>
+          )}
+
           {/* Reply to Comment Banner */}
           {replyingToComment && (
             <div className="mb-2 p-2 bg-gradient-to-r from-purple-500/10 to-purple-600/10 rounded-xl border-l-2 border-purple-400 shadow-lg">

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useVideoPlayback } from '../contexts/VideoPlaybackContext';
 
 // Hooks
@@ -10,12 +10,14 @@ import { useToast } from '../hooks/useToast';
 import { useModalStore } from '../store/modalStore';
 import { useVideoUpload } from '../hooks/useVideoUpload';
 
-// New modular hooks
+// New modular hoo
 import { useWalls } from '../hooks/koltech-line/useWalls';
 import { useMessages } from '../hooks/koltech-line/useMessages';
 import { useFileUpload } from '../hooks/koltech-line/useFileUpload';
 import { useMessageActions } from '../hooks/koltech-line/useMessageActions';
 import { useCommentActions } from '../hooks/koltech-line/useCommentActions';
+import { useVisibleDate } from '../hooks/koltech-line/useVisibleDate';
+import { useLinkPreview } from '../hooks/useLinkPreview';
 
 // New modular components
 import Header from '../components/Header';
@@ -27,6 +29,9 @@ import MessageInput from '../components/koltech-line/MessageInput';
 import MessageCard from '../components/koltech-line/MessageCard';
 import MessageSkeleton from '../components/koltech-line/MessageSkeleton';
 import CommentSkeleton from '../components/koltech-line/CommentSkeleton';
+import DateSeparator from '../components/koltech-line/DateSeparator';
+import StickyDateHeader from '../components/koltech-line/StickyDateHeader';
+import ScrollToTopButton from '../components/koltech-line/ScrollToTopButton';
 import Comment from '../components/Comment';
 
 // Modals
@@ -53,7 +58,13 @@ const KolTechLineNew = () => {
   const messagesHook = useMessages({ wallId: wallId || '', userId: user?._id });
   const fileUploadHook = useFileUpload((msg) => showWarning(msg));
   const videoUploadHook = useVideoUpload();
-  const messageActionsHook = useMessageActions({ userId: user?._id, onSuccess: showSuccess, onError: showError });
+  const messageActionsHook = useMessageActions({ 
+    userId: user?._id, 
+    username: user ? `${user.firstName} ${user.lastName}` : undefined,
+    avatar: user?.avatar ? `http://localhost:5005${user.avatar}` : undefined,
+    onSuccess: showSuccess, 
+    onError: showError 
+  });
   const commentActionsHook = useCommentActions({ userId: user?._id, onError: showError });
 
   // Video playback context
@@ -61,6 +72,7 @@ const KolTechLineNew = () => {
   
   // Local UI state
   const [newMessage, setNewMessage] = useState('');
+  const { linkPreviews, hasLinks } = useLinkPreview(newMessage);
   const [showWalls, setShowWalls] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   
@@ -79,8 +91,160 @@ const KolTechLineNew = () => {
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const [isHoveringComments, setIsHoveringComments] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  
+  // Используем новый хук для отслеживания даты при прокрутке
+  const dateHook = useVisibleDate({ messagesLength: messagesHook.messages.length });
+  const { 
+    currentVisibleDate, 
+    selectedDate, 
+    setCurrentVisibleDate, 
+    setSelectedDate,
+    formatDateForComparison
+  } = dateHook;
+  
+  // Активные даты для календаря
+  const [activeDates, setActiveDates] = useState<Date[]>([]);
 
   const currentWall = wallsHook.allWalls.find(w => w.id === wallId);
+
+  // Helper function to check if element is in viewport
+  const isElementInViewport = (elementId: string): boolean => {
+    const element = document.getElementById(elementId);
+    if (!element) return false;
+
+    const rect = element.getBoundingClientRect();
+    const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+    const windowWidth = window.innerWidth || document.documentElement.clientWidth;
+
+    return (
+      rect.top >= 0 &&
+      rect.left >= 0 &&
+      rect.bottom <= windowHeight &&
+      rect.right <= windowWidth
+    );
+  };
+
+  // Helper function to scroll and highlight only if not visible
+  const scrollToElementIfNeeded = (elementId: string, messageId: string) => {
+    setTimeout(() => {
+      if (!isElementInViewport(elementId)) {
+        // Element is not visible, scroll to it and highlight
+        setHighlightedMessageId(messageId);
+        
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 2000);
+      }
+      // If element is already visible, do nothing
+    }, 100);
+  };
+  
+  // Используем функцию из хука
+  // const formatDateForComparison = (date: Date): string => {
+  //   // Create a new date with just year, month, day (no time)
+  //   const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  //   // Return timestamp for reliable comparison
+  //   return normalized.getTime().toString();
+  // };
+  
+  // Format time for messages (only time, not relative time)
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  
+  // Group messages by date
+  const groupedMessages = useMemo(() => {
+    if (!messagesHook.messages.length) return new Map<string, Message[]>();
+    
+    const groups = new Map<string, Message[]>();
+    const dates = new Set<string>();
+    
+    messagesHook.messages.forEach(message => {
+      const dateKey = formatDateForComparison(message.timestamp);
+      dates.add(dateKey);
+      
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      
+      groups.get(dateKey)!.push(message);
+    });
+    
+    // Update active dates for calendar
+    const activeDatesList = Array.from(dates).map(dateStr => new Date(dateStr));
+    setActiveDates(activeDatesList);
+    
+    return groups;
+  }, [messagesHook.messages]);
+  
+  // Handle date click in calendar
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setShowCalendar(false);
+    
+    // Update the current visible date immediately to match the selected date
+    // This ensures the header updates right away when clicking a date
+    setCurrentVisibleDate(date);
+    
+    // Scroll to the date section if it exists
+    const dateKey = formatDateForComparison(date);
+    const dateElement = document.getElementById(`date-${dateKey}`);
+    
+    if (dateElement) {
+      // If the date element exists, scroll to it
+      // Use block: 'start' to ensure we scroll to the beginning of the date section
+      // This will show the first message of that date at the top of the viewport
+      dateElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Log that we're scrolling to the beginning of the date
+      console.log(`Scrolling to the beginning of messages for ${date.toDateString()}`);
+    } else {
+      // If the date doesn't exist, find the nearest date with messages
+      const clickedTimestamp = parseInt(dateKey);
+      
+      // Convert all active dates to timestamps for comparison
+      const activeTimestamps = activeDates.map(d => parseInt(formatDateForComparison(d)));
+      
+      if (activeTimestamps.length > 0) {
+        // Sort timestamps to find the nearest date in the past
+        // This ensures we scroll to the past messages, not future ones
+        const pastTimestamps = activeTimestamps.filter(ts => ts <= clickedTimestamp);
+        
+        // If there are no dates in the past, use the oldest date available
+        const nearestTimestamp = pastTimestamps.length > 0 
+          ? Math.max(...pastTimestamps)  // Get the most recent date in the past
+          : Math.min(...activeTimestamps);  // If no past dates, get the oldest date
+        
+        // Scroll to the nearest date
+        const nearestElement = document.getElementById(`date-${nearestTimestamp}`);
+        if (nearestElement) {
+          nearestElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          
+          // Update the current visible date to match the nearest date
+          const nearestDate = new Date(nearestTimestamp);
+          setCurrentVisibleDate(nearestDate);
+          
+          // Show a toast notification
+          showInfo(`No messages on ${date.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })}. Showing nearest date with messages.`);
+          
+          console.log(`Scrolling to nearest date in the past: ${new Date(nearestTimestamp).toDateString()}`);
+        }
+      }
+    }
+  };
+  
+  // Используем хук для отслеживания даты при прокрутке
+  // Этот код заменен на хук useVisibleDate
 
   // Socket integration
   useEffect(() => {
@@ -332,52 +496,36 @@ const KolTechLineNew = () => {
         videoUploadHook.reset();
         showSuccess('Message posted with video!');
         
-        // Highlight and scroll to new message - scroll to user position
-        setHighlightedMessageId(realMessage.id);
-        setTimeout(() => {
-          // Scroll to bottom where user's new message appears
-          const messagesContainer = document.querySelector('.overflow-y-auto');
-          if (messagesContainer) {
-            messagesContainer.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }, 100);
-        
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-          setHighlightedMessageId(null);
-        }, 2000);
+        // Scroll and highlight only if not visible
+        scrollToElementIfNeeded(`message-${realMessage.id}`, realMessage.id);
       } catch (error: any) {
         showError(`Error posting message: ${error.message}`);
       }
     } else {
       // No videos, use normal flow
+      let tempId: string | null = null;
+      
       const realMessage = await messageActionsHook.handleSendMessage(
         { content: newMessage, wallId, attachments: [], tags: [] },
         fileUploadHook.selectedFiles,
         (tempMessage) => {
-          // Don't add optimistic message, wait for real one
+          // Add optimistic message immediately
+          tempId = tempMessage.id;
+          messagesHook.addMessage(tempMessage);
         }
       );
 
       if (realMessage) {
+        // Remove temp message and add real one
+        if (tempId) {
+          messagesHook.removeMessage(tempId);
+        }
         messagesHook.addMessage(realMessage);
         setNewMessage('');
         fileUploadHook.clearFiles();
         
-        // Highlight and scroll to new message - scroll to user position (top since messages are reversed)
-        setHighlightedMessageId(realMessage.id);
-        setTimeout(() => {
-          // Scroll to top where user's new message appears
-          const messagesContainer = document.querySelector('.overflow-y-auto');
-          if (messagesContainer) {
-            messagesContainer.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }, 100);
-        
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-          setHighlightedMessageId(null);
-        }, 2000);
+        // Scroll and highlight only if not visible
+        scrollToElementIfNeeded(`message-${realMessage.id}`, realMessage.id);
       }
     }
   };
@@ -509,9 +657,139 @@ const KolTechLineNew = () => {
                     </div>
                   </div>
                   
+                  {/* Sticky Date Header */}
+                  {currentVisibleDate && !showWalls && (
+                    <StickyDateHeader 
+                      date={currentVisibleDate} 
+                      onCalendarClick={() => setShowCalendar(!showCalendar)}
+                    />
+                  )}
+                  
+                  {/* Calendar Popup */}
+                  {showCalendar && !showWalls && (
+                    <div className="fixed top-[185px] left-4 z-50 bg-dark-700 border border-dark-600 rounded-xl shadow-2xl p-4 w-72 animate-scale-in">
+                      <div className="flex items-center justify-between mb-4">
+                        <button 
+                          onClick={() => {
+                            if (currentVisibleDate) {
+                              const newDate = new Date(currentVisibleDate);
+                              newDate.setMonth(newDate.getMonth() - 1);
+                              setCurrentVisibleDate(newDate);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-dark-600 text-gray-400 hover:text-white transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        
+                        <h3 className="text-white font-medium text-sm">
+                          {currentVisibleDate?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </h3>
+                        
+                        <button 
+                          onClick={() => {
+                            if (currentVisibleDate) {
+                              const newDate = new Date(currentVisibleDate);
+                              newDate.setMonth(newDate.getMonth() + 1);
+                              setCurrentVisibleDate(newDate);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-dark-600 text-gray-400 hover:text-white transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-7 gap-1 mb-2">
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                          <div key={day} className="text-center text-xs text-gray-500 font-medium py-1">
+                            {day}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="grid grid-cols-7 gap-1">
+                        {(() => {
+                          // Generate all dates for the current month view
+                          const daysInCalendar = [];
+                          if (currentVisibleDate) {
+                            const year = currentVisibleDate.getFullYear();
+                            const month = currentVisibleDate.getMonth();
+                            
+                            // Get first day of month and how many days to show from previous month
+                            const firstDay = new Date(year, month, 1).getDay();
+                            const daysFromPrevMonth = firstDay === 0 ? 6 : firstDay - 1; // Adjust for Monday start
+                            
+                            // Get days in current month
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+                            
+                            // Add days from previous month
+                            const prevMonth = month === 0 ? 11 : month - 1;
+                            const prevMonthYear = month === 0 ? year - 1 : year;
+                            const daysInPrevMonth = new Date(prevMonthYear, prevMonth + 1, 0).getDate();
+                            
+                            for (let i = 0; i < daysFromPrevMonth; i++) {
+                              const day = daysInPrevMonth - daysFromPrevMonth + i + 1;
+                              daysInCalendar.push({
+                                date: new Date(prevMonthYear, prevMonth, day),
+                                isCurrentMonth: false
+                              });
+                            }
+                            
+                            // Add days from current month
+                            for (let i = 1; i <= daysInMonth; i++) {
+                              daysInCalendar.push({
+                                date: new Date(year, month, i),
+                                isCurrentMonth: true
+                              });
+                            }
+                            
+                            // Add days from next month to fill calendar (6 rows x 7 days = 42 total)
+                            const totalDaysNeeded = 42;
+                            const daysFromNextMonth = totalDaysNeeded - daysInCalendar.length;
+                            const nextMonth = month === 11 ? 0 : month + 1;
+                            const nextMonthYear = month === 11 ? year + 1 : year;
+                            
+                            for (let i = 1; i <= daysFromNextMonth; i++) {
+                              daysInCalendar.push({
+                                date: new Date(nextMonthYear, nextMonth, i),
+                                isCurrentMonth: false
+                              });
+                            }
+                          }
+                          
+                          return daysInCalendar.map((item, index) => {
+                            const { date, isCurrentMonth } = item;
+                            const isToday = formatDateForComparison(date) === formatDateForComparison(new Date());
+                            const isActiveDate = activeDates.some(activeDate => 
+                              formatDateForComparison(activeDate) === formatDateForComparison(date)
+                            );
+                            
+                            return (
+                              <button
+                                key={index}
+                                onClick={() => isCurrentMonth ? handleDateClick(date) : null}
+                                disabled={!isCurrentMonth}
+                                className={`
+                                  w-9 h-9 flex items-center justify-center rounded-full text-sm transition-all
+                                  ${!isCurrentMonth ? 'text-gray-600' : 'hover:bg-dark-600 cursor-pointer'}
+                                  ${isToday ? 'border border-primary-500 text-primary-400' : ''}
+                                  ${isActiveDate ? 'bg-primary-500/20 font-medium' : ''}
+                                  ${selectedDate && formatDateForComparison(date) === formatDateForComparison(selectedDate) ? 'bg-primary-500 text-white' : ''}
+                                `}
+                              >
+                                {date.getDate()}
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Messages */}
                   <div className={`flex-1 overflow-y-auto p-6 pb-40 container mx-auto relative transition-all duration-300 ${
-                    showWalls ? 'pt-[654px] blur-sm opacity-60 pointer-events-none' : 'pt-44'
+                    showWalls ? 'pt-[654px] blur-sm opacity-60 pointer-events-none' : 'pt-52'
                   }`}>
                     <div className="max-w-3xl mx-auto space-y-6">
                       {messagesHook.loading ? (
@@ -522,16 +800,26 @@ const KolTechLineNew = () => {
                         </>
                       ) : (
                         <>
-                        {messagesHook.messages.map((message) => (
-                          <div
-                            key={message.id}
-                            id={`message-${message.id}`}
-                            className={`transition-all duration-300 ${
-                              highlightedMessageId === message.id 
-                                ? 'ring-2 ring-primary-500 rounded-xl' 
-                                : ''
-                            }`}
-                          >
+                        {/* Render messages grouped by date */}
+                        {Array.from(groupedMessages.entries()).map(([dateKey, messagesForDate]) => {
+                          // The dateKey is now a timestamp, so we need to convert it back to a date
+                          const timestamp = parseInt(dateKey);
+                          const dateObj = new Date(timestamp);
+                          console.log('DateKey:', dateKey, 'Parsed date:', dateObj.toDateString());
+                          
+                          return (
+                            <div key={`date-section-${dateKey}`} id={`date-${dateKey}`}>
+                            <div className="space-y-6">
+                              {messagesForDate.map((message, index) => (
+                                <div
+                                  key={`${message.id}-${index}`}
+                                  id={`message-${message.id}`}
+                                  className={`transition-all duration-300 ${
+                                    highlightedMessageId === message.id 
+                                      ? 'ring-2 ring-primary-500 rounded-xl' 
+                                      : ''
+                                  }`}
+                                >
                           <MessageCard
                             message={message}
                             currentUserId={user?._id}
@@ -613,21 +901,19 @@ const KolTechLineNew = () => {
                                       initialIndex: idx,
                                       author: { username: comment.username, avatar: comment.avatar }
                                     })}
-                                    formatTime={(date) => {
-                                      const diff = Date.now() - date.getTime();
-                                      const mins = Math.floor(diff / 60000);
-                                      if (mins < 1) return 'now';
-                                      if (mins < 60) return `${mins}m`;
-                                      return `${Math.floor(mins / 60)}h`;
-                                    }}
+                                    formatTime={formatTime}
                                   />
                                 ))
                                 )}
                               </div>
                             )}
                           </MessageCard>
-                          </div>
-                        ))}
+                                </div>
+                              ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                         
                         {/* Loading More Skeletons */}
                         {messagesHook.loadingMore && (
@@ -747,6 +1033,9 @@ const KolTechLineNew = () => {
         />
       ))}
 
+      {/* Scroll to Top Button - Only show when not showing calendar */}
+      {wallId && !showCalendar && <ScrollToTopButton threshold={800} />}
+
       {/* Message Input - Fixed at bottom */}
       {wallId && (
         <MessageInput
@@ -785,6 +1074,11 @@ const KolTechLineNew = () => {
             setNewMessage('');
           }}
           onJoinWall={handleJoinWall}
+          linkPreviews={linkPreviews}
+          onRemoveLinkPreview={(url) => {
+            // Опционально: можно удалить URL из текста
+            setNewMessage(prev => prev.replace(url, ''));
+          }}
         />
       )}
     </>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   Send,
@@ -34,6 +34,7 @@ import {
 import Header from '../components/Header';
 import Comment from '../components/Comment';
 import ImageCarousel from '../components/ImageCarousel';
+import DateSeparator from '../components/koltech-line/DateSeparator';
 import AuthModal from '../components/ui/AuthModal';
 import CreateWallModal from '../components/ui/CreateWallModal';
 import ImageGalleryModal from '../components/ui/ImageGalleryModal';
@@ -120,6 +121,8 @@ const KolTechLine = () => {
     initialIndex: number;
     author: { username: string; avatar: string };
   } | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [activeDates, setActiveDates] = useState<Date[]>([]);
   
   // Reaction picker state
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
@@ -835,17 +838,54 @@ const KolTechLine = () => {
     }
   };
 
+  // Format time for messages (only time, not date)
   const formatTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'now';
-    if (minutes < 60) return `${minutes}m`;
-    if (hours < 24) return `${hours}h`;
-    return `${days}d`;
+    return date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  
+  // Format date for comparison (strip time)
+  const formatDateForComparison = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+  
+  // Group messages by date
+  const groupedMessages = useMemo(() => {
+    if (!messages.length) return new Map<string, Message[]>();
+    
+    const groups = new Map<string, Message[]>();
+    const dates = new Set<string>();
+    
+    messages.forEach(message => {
+      const dateKey = formatDateForComparison(message.timestamp);
+      dates.add(dateKey);
+      
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      
+      groups.get(dateKey)!.push(message);
+    });
+    
+    // Update active dates for calendar
+    const activeDatesList = Array.from(dates).map(dateStr => new Date(dateStr));
+    setActiveDates(activeDatesList);
+    
+    return groups;
+  }, [messages]);
+  
+  // Handle date click in calendar
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    
+    // Scroll to the date section if it exists
+    const dateKey = formatDateForComparison(date);
+    const dateElement = document.getElementById(`date-${dateKey}`);
+    if (dateElement) {
+      dateElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const toggleTag = (tag: string) => {
@@ -2770,11 +2810,432 @@ const KolTechLine = () => {
                   </div>
                 )}
                 
-                {!loading && !hasMoreMessages && messages.length > 0 && (
-                  <div className="text-center py-6">
-                    <p className="text-gray-500 text-sm">You've reached the end of messages</p>
+              {/* Render messages grouped by date */}
+              {!loading && Array.from(groupedMessages.entries()).map(([dateKey, messagesForDate]) => (
+                <div key={dateKey} id={`date-${dateKey}`}>
+                  <DateSeparator 
+                    date={new Date(dateKey)} 
+                    activeDates={activeDates}
+                    onDateClick={handleDateClick}
+                  />
+                  <div className="space-y-6">
+                    {messagesForDate.map((message) => {
+                      const isOwnMessage = user && message.userId === user._id;
+                      return (
+                        <div
+                          key={message.id}
+                          className={`group relative rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl ${
+                            isOwnMessage
+                              ? 'bg-gradient-to-br from-primary-500/15 to-accent-purple/15 border border-primary-500/40 hover:border-primary-500/60 hover:shadow-primary-500/20'
+                              : 'bg-gradient-to-br from-dark-800 to-dark-700 border border-dark-600 hover:border-primary-500/30 hover:shadow-dark-900/50'
+                          }`}
+                          onMouseEnter={() => {
+                            // Показываем реакции только если НЕ наводим на область комментариев
+                            if (!isHoveringComments) {
+                              setShowReactionPicker(message.id);
+                            }
+                          }}
+                          onMouseLeave={() => setShowReactionPicker(null)}
+                        >
+                        {/* Message Header - Compact */}
+                        <div className="flex items-start space-x-3 p-4 pb-3 rounded-t-2xl overflow-hidden">
+                          <Link to={`/user/${message.userId}`} className="flex-shrink-0">
+                            <img
+                              src={message.avatar}
+                              alt={message.username}
+                              className="w-9 h-9 rounded-full object-cover border-2 border-transparent hover:border-primary-500/50 transition-colors"
+                            />
+                          </Link>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Link to={`/user/${message.userId}`} className="group">
+                                <h3 className="text-white font-medium text-sm group-hover:text-primary-400 transition-colors">
+                                  {message.username}
+                                </h3>
+                              </Link>
+                              <span className="text-gray-500 text-xs">
+                                {formatTime(message.timestamp)}
+                              </span>
+                              {message.isEdited && (
+                                <span className="text-xs text-gray-500">edited</span>
+                              )}
+                              {message.isPinned && (
+                                <Pin className="w-3 h-3 text-primary-400" />
+                              )}
+                            </div>
+
+                            {/* Message Content */}
+                            {message.content && (
+                              <p className="text-gray-300 leading-relaxed text-sm">{message.content}</p>
+                            )}
+                          </div>
+                        </div>
+                          
+                        {/* Attachments - Full Width Carousel */}
+                        {message.attachments && message.attachments.length > 0 && (
+                          <div className="overflow-hidden">
+                            <ImageCarousel
+                              attachments={message.attachments}
+                              onImageClick={(index) => openImageGallery(message, index)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Tags - Below carousel */}
+                        {message.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 px-4 pt-3 overflow-hidden">
+                            {message.tags.map(tag => (
+                              <span
+                                key={tag}
+                                className="bg-dark-700 text-gray-400 px-2 py-0.5 rounded text-xs hover:bg-primary-500 hover:text-white transition-colors cursor-pointer"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Compact Message Footer - Reaction counters */}
+                        <div className="px-4 pb-4 pt-2 rounded-b-2xl">
+                          {/* Show counters only if there are reactions or replies */}
+                          {((message.reactions && Object.keys(message.reactions).length > 0) || message.replies > 0) && (
+                            <div className="relative flex items-center gap-1.5 flex-wrap">
+                              {message.reactions && Object.entries(message.reactions).map(([emoji, data]) => (
+                                <div 
+                                  key={emoji}
+                                  className="flex items-center bg-dark-700/50 rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-dark-700 transition-colors text-xs"
+                                  onClick={() => setShowReactionPicker(showReactionPicker === message.id ? null : message.id)}
+                                >
+                                  <span>{emoji}</span>
+                                  <span className="text-gray-400 ml-1">{data.count}</span>
+                                </div>
+                              ))}
+                              {message.replies > 0 && (
+                                <button
+                                  onClick={() => toggleReplies(message.id)}
+                                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1 px-1.5"
+                                >
+                                  <MessageCircle className="w-3 h-3" />
+                                  <span>{message.replies}</span>
+                                </button>
+                              )}
+                              
+                              {/* Reaction Picker - компактный - показываем только если НЕ в области комментариев */}
+                              {showReactionPicker === message.id && !isHoveringComments && (
+                                <div className="absolute left-0 top-full mt-1 bg-dark-700 border border-dark-600 rounded-full px-2 py-1.5 shadow-xl flex items-center gap-1 animate-scale-in z-50 reaction-picker-container">
+                                  {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
+                                    <button
+                                      key={emoji}
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (!canLikeContent()) {
+                                          setShowAuthModal(true, 'like');
+                                          setShowReactionPicker(null);
+                                          return;
+                                        }
+                                        
+                                        // OPTIMISTIC UPDATE - мгновенно обновляем UI
+                                        const currentReactions = { ...message.reactions };
+                                        const currentUserReaction = message.userReaction;
+                                        const userId = user?._id;
+                                        
+                                        // Создаём новое состояние реакций
+                                        const newReactions = { ...currentReactions };
+                                        
+                                        // ВАЖНО: Сначала удаляем старую реакцию пользователя (если есть)
+                                        // Это предотвращает "мерцание" когда обе реакции видны одновременно
+                                        if (currentUserReaction && newReactions[currentUserReaction]) {
+                                          newReactions[currentUserReaction] = {
+                                            count: Math.max(0, newReactions[currentUserReaction].count - 1),
+                                            users: newReactions[currentUserReaction].users.filter(id => id !== userId)
+                                          };
+                                          if (newReactions[currentUserReaction].count === 0) {
+                                            delete newReactions[currentUserReaction];
+                                          }
+                                        }
+                                        
+                                        // Если пользователь кликнул на ту же реакцию - просто удаляем её (уже удалили выше)
+                                        // Если на другую - добавляем новую
+                                        if (currentUserReaction !== emoji) {
+                                          if (newReactions[emoji]) {
+                                            newReactions[emoji] = {
+                                              count: newReactions[emoji].count + 1,
+                                              users: [...newReactions[emoji].users, userId!]
+                                            };
+                                          } else {
+                                            newReactions[emoji] = {
+                                              count: 1,
+                                              users: [userId!]
+                                            };
+                                          }
+                                        }
+                                        
+                                        const newUserReaction = currentUserReaction === emoji ? undefined : emoji;
+                                        
+                                        // Мгновенно обновляем UI (Optimistic Update)
+                                        setMessages(prev => prev.map(msg =>
+                                          msg.id === message.id
+                                            ? {
+                                                ...msg,
+                                                reactions: newReactions,
+                                                userReaction: newUserReaction
+                                              }
+                                            : msg
+                                        ));
+                                        
+                                        // Отправляем запрос на сервер в фоне
+                                        try {
+                                          const response = await messageApi.toggleReaction(message.id, emoji);
+                                          
+                                          // Синхронизируем с реальными данными от сервера
+                                          setMessages(prev => prev.map(msg =>
+                                            msg.id === message.id
+                                              ? {
+                                                  ...msg,
+                                                  reactions: response.data.reactions.reduce((acc: any, r: any) => {
+                                                    acc[r.emoji] = { count: r.count, users: r.users };
+                                                    return acc;
+                                                  }, {}),
+                                                  userReaction: response.data.userReaction
+                                                }
+                                              : msg
+                                          ));
+                                        } catch (error) {
+                                          console.error('Error toggling reaction:', error);
+                                          
+                                          // В случае ошибки - откатываем изменения (Rollback)
+                                          setMessages(prev => prev.map(msg =>
+                                            msg.id === message.id
+                                              ? {
+                                                  ...msg,
+                                                  reactions: currentReactions,
+                                                  userReaction: currentUserReaction
+                                                }
+                                              : msg
+                                          ));
+                                          
+                                          showError('❌ Failed to update reaction. Please try again.');
+                                        }
+                                      }}
+                                      className={`text-lg hover:scale-110 transition-transform p-1 ${
+                                        message.userReaction === emoji ? 'scale-105' : ''
+                                      }`}
+                                      title={emoji}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Replies Section */}
+                          {expandedReplies.has(message.id) && (
+                            <div 
+                              className="mt-4 ml-4 pl-4 border-l-2 border-primary-500/30 space-y-3"
+                              onMouseEnter={() => {
+                                setIsHoveringComments(message.id);
+                                setShowReactionPicker(null); // Скрываем реакции основного сообщения
+                              }}
+                              onMouseLeave={() => {
+                                setIsHoveringComments(null);
+                                setShowCommentReactionPicker(null); // Скрываем реакции комментариев
+                              }}
+                            >
+                              {loadingReplies.has(message.id) ? (
+                                /* Comment Skeleton Loading */
+                                <div className="space-y-3">
+                                  {[1, 2, 3].map((i) => (
+                                    <div
+                                      key={i}
+                                      className="rounded-xl p-3 bg-gradient-to-br from-dark-700/50 to-dark-800/50 border border-dark-600 animate-pulse"
+                                      style={{ animationDelay: `${i * 100}ms` }}
+                                    >
+                                      <div className="flex items-start space-x-2">
+                                        {/* Avatar Skeleton */}
+                                        <div className="w-7 h-7 rounded-full bg-dark-600"></div>
+                                        
+                                        <div className="flex-1 min-w-0">
+                                          {/* Name and Time Skeleton */}
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <div className="h-3 bg-dark-600 rounded w-20"></div>
+                                            <div className="h-2 bg-dark-600 rounded w-8"></div>
+                                          </div>
+                                          
+                                          {/* Content Skeleton */}
+                                          <div className="space-y-1.5">
+                                            <div className="h-2.5 bg-dark-600 rounded w-full"></div>
+                                            <div className="h-2.5 bg-dark-600 rounded w-4/5"></div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Reactions Skeleton */}
+                                      <div className="flex items-center gap-1.5 mt-2 ml-9">
+                                        <div className="h-5 bg-dark-600 rounded-full w-10"></div>
+                                        <div className="h-5 bg-dark-600 rounded-full w-10"></div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                messageReplies[message.id]?.map((comment) => (
+                                  <Comment
+                                    key={comment.id}
+                                    comment={comment}
+                                    parentMessageId={message.id}
+                                    currentUserId={user?._id}
+                                    isLoggedIn={isLoggedIn()}
+                                    level={0}
+                                    highlightedCommentId={highlightedCommentId}
+                                    onReply={(commentId, username) => {
+                                      setReplyingToComment({ commentId, username, parentMessageId: message.id });
+                                      setNewMessage(`@${username} `);
+                                      textareaRef.current?.focus();
+                                    }}
+                                    onEdit={(comment) => handleEditComment(comment, message.id)}
+                                    onDelete={(commentId) => handleDeleteComment(commentId, message.id)}
+                                    onReaction={(commentId, emoji) => handleCommentReaction(commentId, emoji, message.id)}
+                                    onStartChat={handleStartPrivateChat}
+                                    onAddContact={handleAddContact}
+                                    onReport={handleReport}
+                                    onImageClick={(comment, imageIndex) => {
+                                      setImageGalleryModal({
+                                        isOpen: true,
+                                        images: comment.attachments!.map((att: any) => ({
+                                          url: att.url,
+                                          filename: att.filename,
+                                          type: att.type as 'image' | 'video'
+                                        })),
+                                        initialIndex: imageIndex,
+                                        author: {
+                                          username: comment.username,
+                                          avatar: comment.avatar
+                                        }
+                                      });
+                                    }}
+                                    formatTime={formatTime}
+                                  />
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Hover Actions - Compact */}
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity message-menu-container">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMessageMenuOpen(messageMenuOpen === message.id ? null : message.id);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-dark-700"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                          
+                          {/* Dropdown Menu */}
+                          {messageMenuOpen === message.id && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-dark-700 border border-dark-600 rounded-xl shadow-2xl z-[100] overflow-hidden message-menu-container">
+                              <button
+                                onClick={() => {
+                                  handleComment(message.id);
+                                  setMessageMenuOpen(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                                <span>Reply</span>
+                              </button>
+                              
+                              {isLoggedIn() && message.userId === user?._id && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      handleEditMessage(message);
+                                      setMessageMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                                  >
+                                    <Settings className="w-4 h-4" />
+                                    <span>Edit</span>
+                                  </button>
+                                  
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteMessage(message.id);
+                                      setMessageMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                                  >
+                                    <Flag className="w-4 h-4" />
+                                    <span>Delete</span>
+                                  </button>
+                                </>
+                              )}
+                              
+                              {isLoggedIn() && message.userId !== user?._id && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      handleStartPrivateChat(message.userId);
+                                      setMessageMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                                  >
+                                    <Phone className="w-4 h-4" />
+                                    <span>Message</span>
+                                  </button>
+                                  
+                                  <button
+                                    onClick={() => {
+                                      handleAddContact(message.userId);
+                                      setMessageMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                                  >
+                                    <UserPlus className="w-4 h-4" />
+                                    <span>Add Contact</span>
+                                  </button>
+                                  
+                                  <button
+                                    onClick={() => {
+                                      handleReport(message.id);
+                                      setMessageMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center space-x-2 text-sm"
+                                  >
+                                    <Flag className="w-4 h-4" />
+                                    <span>Report</span>
+                                  </button>
+                                </>
+                              )}
+                              
+                              <div className="border-t border-dark-600"></div>
+                              <button
+                                onClick={() => setMessageMenuOpen(null)}
+                                className="w-full text-left px-3 py-2 text-gray-300 hover:bg-dark-600 hover:text-white transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <Share2 className="w-4 h-4" />
+                                <span>Share</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
+              ))}
+              
+              {!loading && !hasMoreMessages && messages.length > 0 && (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 text-sm">You've reached the end of messages</p>
+                </div>
+              )}
               </div>
               )}
             </div>
