@@ -239,9 +239,9 @@ const MessageCard: React.FC<MessageCardProps> = ({
       {/* Tags */}
       {message.tags && message.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-2 overflow-hidden">
-          {message.tags.map(tag => (
+          {message.tags.map((tag, index) => (
             <span
-              key={tag}
+              key={`${tag}-${index}`}
               className="bg-dark-700 text-gray-400 px-2 py-0.5 rounded text-xs hover:bg-primary-500 hover:text-white transition-colors cursor-pointer"
             >
               #{tag}

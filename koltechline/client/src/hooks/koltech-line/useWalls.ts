@@ -16,10 +16,23 @@ export const useWalls = ({ userId, selectedCategory = 'all' }: UseWallsProps = {
   const loadWalls = async (category: string = 'all') => {
     setLoadingWalls(true);
     try {
-      const response = await wallApi.getWalls({
-        category: category !== 'all' ? category : undefined,
-        limit: 50
-      });
+      let response;
+      
+      // If category is 'subscribed', use the my-walls endpoint
+      if (category === 'subscribed') {
+        if (!userId) {
+          // If user is not logged in, show empty list for subscribed
+          setWalls([]);
+          setLoadingWalls(false);
+          return;
+        }
+        response = await wallApi.getMyWalls('member');
+      } else {
+        response = await wallApi.getWalls({
+          category: category !== 'all' ? category : undefined,
+          limit: 50
+        });
+      }
       
       const wallsData = response.data.walls.map((wall: any) => ({
         id: wall._id,
@@ -40,8 +53,8 @@ export const useWalls = ({ userId, selectedCategory = 'all' }: UseWallsProps = {
       // Update allWalls cache
       if (category === 'all') {
         setAllWalls(wallsData);
-      } else {
-        // Add new walls to cache without removing old ones
+      } else if (category !== 'subscribed') {
+        // Add new walls to cache without removing old ones (but not for subscribed)
         setAllWalls(prev => {
           const newWalls = wallsData.filter((w: Wall) => !prev.find(p => p.id === w.id));
           return [...prev, ...newWalls];

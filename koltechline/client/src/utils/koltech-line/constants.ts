@@ -3,6 +3,7 @@ import { Category, ParticipantRange } from '../../types/koltech-line';
 
 export const categories: Category[] = [
   { id: 'all', name: 'All Categories' },
+  { id: 'subscribed', name: 'Subscribed' },
   { id: 'freelance', name: 'Freelance' },
   { id: 'startups', name: 'Startups' },
   { id: 'investments', name: 'Investments' },

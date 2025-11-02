@@ -82,24 +82,26 @@ router.get(
   getWalls
 );
 
+// Protected routes - must come before /:id route to avoid conflicts
+router.get(
+  '/my-walls',
+  protect,
+  getMyWalls
+);
+
 router.get(
   '/:id',
   validateRequest(wallIdSchema, 'params'),
   getWall
 );
 
-// Protected routes
+// Other protected routes
 router.use(protect);
 
 router.post(
   '/',
   validateRequest(createWallSchema),
   createWall
-);
-
-router.get(
-  '/my/walls',
-  getMyWalls
 );
 
 router.post(

@@ -155,7 +155,9 @@ const WallsList: React.FC<WallsListProps> = ({
                 ? `No walls match "${searchQuery}"`
                 : selectedCategory === 'all' 
                   ? 'There are no walls available at the moment.'
-                  : `No walls found in the "${categories.find(c => c.id === selectedCategory)?.name}" category.`
+                  : selectedCategory === 'subscribed'
+                    ? 'You are not subscribed to any walls yet. Join a wall to see it here!'
+                    : `No walls found in the "${categories.find(c => c.id === selectedCategory)?.name}" category.`
               }
             </p>
             {(selectedCategory !== 'all' || searchQuery) && (
